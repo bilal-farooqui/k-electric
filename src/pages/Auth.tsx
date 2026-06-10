@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Shield, Key, User, Building, Eye, EyeOff, UserPlus, LogIn, Award } from 'lucide-react';
+import { Shield, Key, User, Eye, EyeOff, UserPlus, LogIn, Award } from 'lucide-react';
 
 interface AuthProps {
   onLoginSuccess: (user: any) => void;
@@ -16,7 +16,6 @@ export const Auth: React.FC<AuthProps> = ({ onLoginSuccess }) => {
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
   const [badgeId, setBadgeId] = useState('');
-  const [department, setDepartment] = useState('');
   const [role, setRole] = useState('');
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -27,7 +26,7 @@ export const Auth: React.FC<AuthProps> = ({ onLoginSuccess }) => {
     const endpoint = isLogin ? '/api/auth/login' : '/api/auth/signup';
     const payload = isLogin
       ? { username, password }
-      : { username, password, name, role, badgeId, department };
+      : { username, password, name, role, badgeId };
 
     try {
       const res = await fetch(endpoint, {
@@ -201,21 +200,6 @@ export const Auth: React.FC<AuthProps> = ({ onLoginSuccess }) => {
                 </div>
               </div>
 
-              {/* DEPARTMENT */}
-              <div>
-                <label className="text-[10px] font-bold text-gray-450 block mb-1 uppercase tracking-wider">Department / Division</label>
-                <div className="relative">
-                  <input
-                    type="text"
-                    required
-                    value={department}
-                    onChange={(e) => setDepartment(e.target.value)}
-                    className="w-full bg-black/30 border border-gray-800 focus:border-brand-accent text-white rounded-xl pl-10 pr-4 py-2.5 text-xs font-semibold outline-none transition-all placeholder-gray-600"
-                    placeholder="e.g. Distribution Operations"
-                  />
-                  <Building className="absolute left-3.5 top-3 h-4 w-4 text-gray-500" />
-                </div>
-              </div>
 
             </div>
           )}

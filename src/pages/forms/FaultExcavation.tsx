@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { FormWrapper } from '../../components/FormWrapper';
 import { SignaturePad } from '../../components/SignaturePad';
-import { Tooltip } from '../../components/Tooltip';
 import type { Permit } from '../../types/ptw';
 
 interface FormProps {
@@ -21,26 +20,19 @@ export const FaultExcavation: React.FC<FormProps> = ({ permits, onSetPermits, cu
   const [status, setStatus] = useState<'draft' | 'pending' | 'approved' | 'rejected'>('draft');
 
   // Form State
-  const [ticketId, setTicketId] = useState('');
-  const [substation, setSubstation] = useState('Substation Clifton A');
-  const [feederName, setFeederName] = useState('K-Feeder 3');
-  const [cableType, setCableType] = useState('HT (11kV)');
-  const [locationAddress, setLocationAddress] = useState('');
-  const [gpsCoords, setGpsCoords] = useState('');
-  
-  const [excavationNeeded, setExcavationNeeded] = useState<'yes' | 'no'>('yes');
-  const [trenchDepth, setTrenchDepth] = useState('1.0');
-  const [trenchWidth, setTrenchWidth] = useState('0.6');
-  const [trenchLength, setTrenchLength] = useState('5.0');
-  
-  const [surveyChecks, setSurveyChecks] = useState<Record<string, boolean>>({
-    markersVerified: false,
-    gasClearance: false,
-    telecomClearance: false,
-    waterClearance: false,
-  });
+  const [faultId, setFaultId] = useState('');
+  const [receivedDate, setReceivedDate] = useState(new Date().toISOString().split('T')[0]);
+  const [receivedThrough, setReceivedThrough] = useState('');
+  const [siteLocation, setSiteLocation] = useState('');
+  const [purpose, setPurpose] = useState('');
+  const [estimatedDepth, setEstimatedDepth] = useState('');
+  const [estimatedArea, setEstimatedArea] = useState('');
+  const [startDate, setStartDate] = useState(new Date().toISOString().split('T')[0]);
+  const [endDate, setEndDate] = useState(new Date().toISOString().split('T')[0]);
 
-  const [signature, setSignature] = useState('');
+  const [requestedBy, setRequestedBy] = useState('');
+  const [submitterSignature, setSubmitterSignature] = useState('');
+  const [approverSignature, setApproverSignature] = useState('');
 
   useEffect(() => {
     const existing = editId ? permits.find((p) => p.id === editId) : null;
@@ -49,45 +41,37 @@ export const FaultExcavation: React.FC<FormProps> = ({ permits, onSetPermits, cu
       setStatus(existing.status);
       const data = existing.formData;
       if (data) {
-        setTicketId(data.ticketId || '');
-        setSubstation(data.substation || '');
-        setFeederName(data.feederName || '');
-        setCableType(data.cableType || 'HT (11kV)');
-        setLocationAddress(data.locationAddress || '');
-        setGpsCoords(data.gpsCoords || '');
-        setExcavationNeeded(data.excavationNeeded || 'yes');
-        setTrenchDepth(data.trenchDepth || '1.0');
-        setTrenchWidth(data.trenchWidth || '0.6');
-        setTrenchLength(data.trenchLength || '5.0');
-        setSurveyChecks(data.surveyChecks || {});
-        setSignature(data.signature || '');
+        setFaultId(data.faultId || '');
+        setReceivedDate(data.receivedDate || '');
+        setReceivedThrough(data.receivedThrough || '');
+        setSiteLocation(data.siteLocation || '');
+        setPurpose(data.purpose || '');
+        setEstimatedDepth(data.estimatedDepth || '');
+        setEstimatedArea(data.estimatedArea || '');
+        setStartDate(data.startDate || '');
+        setEndDate(data.endDate || '');
+        setRequestedBy(data.requestedBy || '');
+        setSubmitterSignature(data.submitterSignature || '');
+        setApproverSignature(data.approverSignature || '');
       }
     } else {
       setPermitId(`KE-FE-${Math.floor(100000 + Math.random() * 900000)}`);
       setStatus('draft');
-      setTicketId('');
-      setSubstation('Substation Clifton A');
-      setFeederName('K-Feeder 3');
-      setCableType('HT (11kV)');
-      setLocationAddress('');
-      setGpsCoords('');
-      setExcavationNeeded('yes');
-      setTrenchDepth('1.0');
-      setTrenchWidth('0.6');
-      setTrenchLength('5.0');
-      setSurveyChecks({
-        markersVerified: false,
-        gasClearance: false,
-        telecomClearance: false,
-        waterClearance: false,
-      });
-      setSignature('');
+      setFaultId('');
+      setReceivedDate(new Date().toISOString().split('T')[0]);
+      setReceivedThrough('Call Center');
+      setSiteLocation('');
+      setPurpose('Faulty HT cable joint excavation');
+      setEstimatedDepth('1.2m');
+      setEstimatedArea('6 sq meters');
+      setStartDate(new Date().toISOString().split('T')[0]);
+      const threeDaysLater = new Date(Date.now() + 3600000 * 24 * 3).toISOString().split('T')[0];
+      setEndDate(threeDaysLater);
+      setRequestedBy(currentUser?.name || '');
+      setSubmitterSignature('');
+      setApproverSignature('');
     }
   }, [permits, editId, currentUser]);
-
-  const toggleCheck = (item: string) => {
-    setSurveyChecks((prev) => ({ ...prev, [item]: !prev[item] }));
-  };
 
   const handleSaveDraft = () => {
     const newPermit: Permit = {
@@ -96,20 +80,20 @@ export const FaultExcavation: React.FC<FormProps> = ({ permits, onSetPermits, cu
       title: 'Fault / Excavation Request Form',
       status: 'draft',
       createdAt: new Date().toLocaleString(),
-      submittedBy: currentUser?.name || 'Maintenance Supervisor',
+      submittedBy: requestedBy,
       formData: {
-        ticketId,
-        substation,
-        feederName,
-        cableType,
-        locationAddress,
-        gpsCoords,
-        excavationNeeded,
-        trenchDepth,
-        trenchWidth,
-        trenchLength,
-        surveyChecks,
-        signature,
+        faultId,
+        receivedDate,
+        receivedThrough,
+        siteLocation,
+        purpose,
+        estimatedDepth,
+        estimatedArea,
+        startDate,
+        endDate,
+        requestedBy,
+        submitterSignature,
+        approverSignature,
       },
     };
 
@@ -130,18 +114,17 @@ export const FaultExcavation: React.FC<FormProps> = ({ permits, onSetPermits, cu
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!ticketId || !locationAddress || !gpsCoords) {
-      alert('Please fill out Ticket ID, Location, and GPS Coordinates.');
+    if (!faultId || !receivedDate || !receivedThrough || !siteLocation || !purpose || !estimatedDepth || !estimatedArea || !startDate || !endDate || !requestedBy) {
+      alert('Please fill out all request details.');
       return;
     }
 
-    if (!signature) {
-      alert('A digital signature or authorization stamp is required to submit.');
+    if (!submitterSignature) {
+      alert('Requested By signature is required to submit.');
       return;
     }
 
-    const allClear = Object.values(surveyChecks).every((val) => val === true);
-    const finalStatus = (excavationNeeded === 'yes' && !allClear) ? 'pending' : 'approved';
+    const finalStatus = approverSignature ? 'approved' : 'pending';
 
     const newPermit: Permit = {
       id: permitId,
@@ -149,22 +132,22 @@ export const FaultExcavation: React.FC<FormProps> = ({ permits, onSetPermits, cu
       title: 'Fault / Excavation Request Form',
       status: finalStatus,
       createdAt: new Date().toLocaleString(),
-      submittedBy: currentUser?.name || 'Maintenance Supervisor',
+      submittedBy: requestedBy,
       approvedBy: finalStatus === 'approved' ? 'Substation Control Desk' : undefined,
       approvedAt: finalStatus === 'approved' ? new Date().toLocaleString() : undefined,
       formData: {
-        ticketId,
-        substation,
-        feederName,
-        cableType,
-        locationAddress,
-        gpsCoords,
-        excavationNeeded,
-        trenchDepth,
-        trenchWidth,
-        trenchLength,
-        surveyChecks,
-        signature,
+        faultId,
+        receivedDate,
+        receivedThrough,
+        siteLocation,
+        purpose,
+        estimatedDepth,
+        estimatedArea,
+        startDate,
+        endDate,
+        requestedBy,
+        submitterSignature,
+        approverSignature,
       },
     };
 
@@ -182,20 +165,28 @@ export const FaultExcavation: React.FC<FormProps> = ({ permits, onSetPermits, cu
     setStatus(finalStatus);
     alert(
       finalStatus === 'approved'
-        ? 'Fault/Excavation Request approved!'
-        : 'Clearance utilities checks missing. Awaiting Civil Desk authorization.'
+        ? 'Excavation request approved and finalized!'
+        : 'Excavation request submitted successfully. Awaiting safety approval.'
     );
     navigate('/');
   };
 
   const handleApprove = () => {
+    if (!approverSignature && status === 'pending') {
+      alert('Approved By signature is required to approve.');
+      return;
+    }
     const existing = permits.find((p) => p.id === permitId);
     if (!existing) return;
     const updatedPermit: Permit = {
       ...existing,
       status: 'approved',
-      approvedBy: `${currentUser?.name || 'Admin'} (${currentUser?.role || 'Safety Officer'})`,
+      approvedBy: `${currentUser?.name || 'Safety Officer'} (${currentUser?.role || 'Safety Officer'})`,
       approvedAt: new Date().toLocaleString(),
+      formData: {
+        ...existing.formData,
+        approverSignature,
+      }
     };
     const index = permits.findIndex((p) => p.id === permitId);
     let updated = [...permits];
@@ -216,6 +207,12 @@ export const FaultExcavation: React.FC<FormProps> = ({ permits, onSetPermits, cu
     const updatedPermit: Permit = {
       ...existing,
       status: 'rejected',
+      approvedBy: `${currentUser?.name || 'Safety Officer'} (${currentUser?.role || 'Safety Officer'})`,
+      approvedAt: new Date().toLocaleString(),
+      formData: {
+        ...existing.formData,
+        approverSignature,
+      }
     };
     const index = permits.findIndex((p) => p.id === permitId);
     let updated = [...permits];
@@ -230,220 +227,184 @@ export const FaultExcavation: React.FC<FormProps> = ({ permits, onSetPermits, cu
     navigate('/admin');
   };
 
-  const items = [
-    { key: 'markersVerified', label: 'Physical Cable Route Markers Verified', tooltip: 'Verify concrete markers on street align with cable map layout.' },
-    { key: 'gasClearance', label: 'SSGC Gas Pipeline Clearance Verified', tooltip: 'Verify no active gas line runs directly below excavation layout.' },
-    { key: 'telecomClearance', label: 'PTCL Fiber / Telecom Service Clearance', tooltip: 'Ensure telecom lines are safe from bucket excavator reach.' },
-    { key: 'waterClearance', label: 'KWSB Water Pipeline Drawings Checked', tooltip: 'Check that water main pipes will not be compromised.' },
-  ];
+  const isAuthorizerDisabled = status === 'approved' || status === 'rejected' || currentUser?.label !== 'admin';
+  const isDisabled = status === 'approved' || status === 'rejected' || (currentUser?.label === 'admin' && status === 'pending');
 
-  const isDisabled = status === 'approved' || status === 'rejected' || (currentUser?.role === 'Principal Safety Officer' && status === 'pending');
+  const existingPermit = permits.find((p) => p.id === permitId);
+  const approvedByVal = existingPermit?.approvedBy || (status === 'pending' && currentUser?.label === 'admin' ? `${currentUser?.name} (${currentUser?.role || 'Safety Officer'})` : 'Awaiting Approval');
+  const approvedAtVal = existingPermit?.approvedAt || (status === 'pending' && currentUser?.label === 'admin' ? new Date().toLocaleDateString() + ' ' + new Date().toLocaleTimeString() : 'Pending Review');
 
   return (
     <FormWrapper
-      title="Receiving Fault / Excavation Request"
+      title="5. RECEIVING FAULT / EXCAVATION REQUEST FORM"
       code={formCode}
       permitId={permitId}
       status={status}
       onSaveDraft={handleSaveDraft}
       onSubmit={handleSubmit}
-      isAdmin={currentUser?.role === 'Principal Safety Officer'}
+      isAdmin={currentUser?.label === 'admin'}
       onApprove={handleApprove}
       onReject={handleReject}
     >
-      {/* SECTION 1: FAULT DETAILS */}
-      <div className="space-y-4">
-        <h3 className="text-xs font-bold text-brand-navy tracking-wider uppercase border-b border-gray-150 pb-2">
-          I. Fault Ticket & Cable Metadata
-        </h3>
-        
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-          <div>
-            <label className="text-xs font-bold text-gray-550 block mb-1">FAULT TICKET ID</label>
-            <input
-              type="text"
-              value={ticketId}
-              onChange={(e) => setTicketId(e.target.value)}
-              placeholder="e.g. F-938204"
-              className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-brand-orange"
-              disabled={isDisabled}
-            />
-          </div>
-
-          <div>
-            <label className="text-xs font-bold text-gray-550 block mb-1">GRID SUBSTATION</label>
-            <input
-              type="text"
-              value={substation}
-              onChange={(e) => setSubstation(e.target.value)}
-              className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-brand-orange"
-              disabled={isDisabled}
-            />
-          </div>
-
-          <div>
-            <label className="text-xs font-bold text-gray-550 block mb-1">FEEDER / CIRCUIT NAME</label>
-            <input
-              type="text"
-              value={feederName}
-              onChange={(e) => setFeederName(e.target.value)}
-              className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-brand-orange"
-              disabled={isDisabled}
-            />
-          </div>
-
-          <div>
-            <label className="text-xs font-bold text-gray-550 block mb-1">CABLE TYPE</label>
-            <select
-              value={cableType}
-              onChange={(e) => setCableType(e.target.value)}
-              className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-brand-orange"
-              disabled={isDisabled}
-            >
-              <option>HT (11kV)</option>
-              <option>HT (33kV)</option>
-              <option>LT (400V)</option>
-            </select>
-          </div>
-
-          <div className="md:col-span-2">
-            <label className="text-xs font-bold text-gray-550 block mb-1">FAULT STREET ADDRESS</label>
-            <input
-              type="text"
-              value={locationAddress}
-              onChange={(e) => setLocationAddress(e.target.value)}
-              placeholder="e.g. Plot 43C, Lane 6, DHA Phase 5"
-              className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-brand-orange"
-              disabled={isDisabled}
-            />
-          </div>
-
-          <div>
-            <label className="text-xs font-bold text-gray-550 block mb-1">GPS COORDINATES</label>
-            <input
-              type="text"
-              value={gpsCoords}
-              onChange={(e) => setGpsCoords(e.target.value)}
-              placeholder="e.g. 24.8607° N, 67.0011° E"
-              className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-brand-orange"
-              disabled={isDisabled}
-            />
-          </div>
+      <div className="bg-amber-50/15 border border-gray-200 rounded-2xl p-6 md:p-10 shadow-sm max-w-4xl mx-auto font-serif text-gray-800 leading-loose">
+        {/* Letter Subject */}
+        <div className="text-center font-bold text-lg mb-8 uppercase tracking-wide border-b-2 border-brand-navy pb-3">
+          Subject: Receiving Fault / Excavation Request
         </div>
-      </div>
 
-      {/* SECTION 2: EXCAVATION SCOPE */}
-      <div className="space-y-4">
-        <h3 className="text-xs font-bold text-brand-navy tracking-wider uppercase border-b border-gray-150 pb-2">
-          II. Excavation Dimension Parameters
-        </h3>
+        {/* Salutation */}
+        <div className="mb-6 font-semibold">Respected Sir,</div>
 
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-5">
-          <div>
-            <label className="text-xs font-bold text-gray-550 block mb-1">EXCAVATION REQUIRED?</label>
-            <select
-              value={excavationNeeded}
-              onChange={(e) => setExcavationNeeded(e.target.value as 'yes' | 'no')}
-              className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-brand-orange"
-              disabled={isDisabled}
-            >
-              <option value="yes">Yes</option>
-              <option value="no">No</option>
-            </select>
-          </div>
-
-          {excavationNeeded === 'yes' && (
-            <>
-              <div>
-                <label className="text-xs font-bold text-gray-550 block mb-1">TRENCH DEPTH (M)</label>
-                <input
-                  type="number"
-                  step="0.1"
-                  value={trenchDepth}
-                  onChange={(e) => setTrenchDepth(e.target.value)}
-                  className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-brand-orange"
-                  disabled={isDisabled}
-                />
-              </div>
-
-              <div>
-                <label className="text-xs font-bold text-gray-550 block mb-1">TRENCH WIDTH (M)</label>
-                <input
-                  type="number"
-                  step="0.1"
-                  value={trenchWidth}
-                  onChange={(e) => setTrenchWidth(e.target.value)}
-                  className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-brand-orange"
-                  disabled={isDisabled}
-                />
-              </div>
-
-              <div>
-                <label className="text-xs font-bold text-gray-550 block mb-1">TRENCH LENGTH (M)</label>
-                <input
-                  type="number"
-                  step="0.1"
-                  value={trenchLength}
-                  onChange={(e) => setTrenchLength(e.target.value)}
-                  className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-brand-orange"
-                  disabled={isDisabled}
-                />
-              </div>
-            </>
-          )}
-        </div>
-      </div>
-
-      {/* SECTION 3: SURVEY CLEARANCE */}
-      {excavationNeeded === 'yes' && (
-        <div className="space-y-4">
-          <h3 className="text-xs font-bold text-brand-navy tracking-wider uppercase border-b border-gray-150 pb-2">
-            III. Third-Party Utilities Clearance Survey
-          </h3>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {items.map((item) => (
-              <div 
-                key={item.key} 
-                className="bg-white border border-gray-250 p-4.5 rounded-xl shadow-xs flex justify-between items-center hover:border-gray-350 transition-colors"
-              >
-                <div className="flex items-center gap-2">
-                  <span className="text-sm font-semibold text-brand-navy">{item.label}</span>
-                  <Tooltip content={item.tooltip} />
-                </div>
-
-                <button
-                  type="button"
-                  onClick={() => toggleCheck(item.key)}
-                  disabled={isDisabled}
-                  className={`px-4 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                    surveyChecks[item.key]
-                      ? 'bg-emerald-600 border border-emerald-700 text-white shadow-sm'
-                      : 'bg-gray-105 border border-gray-300 text-gray-650 hover:bg-gray-200'
-                  }`}
-                >
-                  {surveyChecks[item.key] ? 'Cleared' : 'Pending'}
-                </button>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* SECTION 4: SIGN-OFF */}
-      <div className="space-y-4">
-        <h3 className="text-xs font-bold text-brand-navy tracking-wider uppercase border-b border-gray-150 pb-2">
-          IV. Maintenance Supervisor Stamp
-        </h3>
-
-        <div className="max-w-md">
-          <SignaturePad
-            label="SUPERVISOR SIGN-OFF"
-            role="Fault Operations Supervisor"
-            onSign={setSignature}
-            savedSignature={signature}
+        {/* Paragraph 1 */}
+        <p className="mb-6 text-justify">
+          It is requested that excavation work is required at the fault location against Complaint/Fault ID{" "}
+          <input
+            type="text"
+            required
+            value={faultId}
+            onChange={(e) => setFaultId(e.target.value)}
+            placeholder="Complaint/Fault ID"
+            className="border-b border-gray-400 bg-transparent text-center font-bold px-2 inline-block focus:border-brand-orange focus:outline-none w-48 text-brand-navy font-sans"
+            disabled={isDisabled}
+          />{" "}
+          received on{" "}
+          <input
+            type="date"
+            required
+            value={receivedDate}
+            onChange={(e) => setReceivedDate(e.target.value)}
+            className="border-b border-gray-400 bg-transparent text-center font-bold px-2 inline-block focus:border-brand-orange focus:outline-none w-44 text-brand-navy font-sans"
+            disabled={isDisabled}
+          />{" "}
+          through{" "}
+          <input
+            type="text"
+            required
+            value={receivedThrough}
+            onChange={(e) => setReceivedThrough(e.target.value)}
+            placeholder="channel / source"
+            className="border-b border-gray-400 bg-transparent text-center font-bold px-2 inline-block focus:border-brand-orange focus:outline-none w-44 text-brand-navy font-sans"
             disabled={isDisabled}
           />
+          . The site is located at{" "}
+          <input
+            type="text"
+            required
+            value={siteLocation}
+            onChange={(e) => setSiteLocation(e.target.value)}
+            placeholder="Site location address"
+            className="border-b border-gray-400 bg-transparent font-bold px-2 inline-block focus:border-brand-orange focus:outline-none w-full max-w-lg text-brand-navy font-sans"
+            disabled={isDisabled}
+          />
+          .
+        </p>
+
+        {/* Paragraph 2 */}
+        <p className="mb-6 text-justify">
+          The excavation is required for the purpose of{" "}
+          <input
+            type="text"
+            required
+            value={purpose}
+            onChange={(e) => setPurpose(e.target.value)}
+            placeholder="purpose of excavation"
+            className="border-b border-gray-400 bg-transparent font-bold px-2 inline-block focus:border-brand-orange focus:outline-none w-full max-w-md text-brand-navy font-sans"
+            disabled={isDisabled}
+          />{" "}
+          with an estimated depth of{" "}
+          <input
+            type="text"
+            required
+            value={estimatedDepth}
+            onChange={(e) => setEstimatedDepth(e.target.value)}
+            placeholder="depth"
+            className="border-b border-gray-400 bg-transparent text-center font-bold px-2 inline-block focus:border-brand-orange focus:outline-none w-32 text-brand-navy font-sans"
+            disabled={isDisabled}
+          />{" "}
+          and area of{" "}
+          <input
+            type="text"
+            required
+            value={estimatedArea}
+            onChange={(e) => setEstimatedArea(e.target.value)}
+            placeholder="area size"
+            className="border-b border-gray-400 bg-transparent text-center font-bold px-2 inline-block focus:border-brand-orange focus:outline-none w-36 text-brand-navy font-sans"
+            disabled={isDisabled}
+          />
+          . All necessary utility clearances, including gas, water, telecom, and sewer lines, have been checked before commencement of work.
+        </p>
+
+        {/* Paragraph 3 */}
+        <p className="mb-10 text-justify">
+          Kindly grant approval to proceed with the excavation work from{" "}
+          <input
+            type="date"
+            required
+            value={startDate}
+            onChange={(e) => setStartDate(e.target.value)}
+            className="border-b border-gray-400 bg-transparent text-center font-bold px-2 inline-block focus:border-brand-orange focus:outline-none w-44 text-brand-navy font-sans"
+            disabled={isDisabled}
+          />{" "}
+          to{" "}
+          <input
+            type="date"
+            required
+            value={endDate}
+            onChange={(e) => setEndDate(e.target.value)}
+            className="border-b border-gray-400 bg-transparent text-center font-bold px-2 inline-block focus:border-brand-orange focus:outline-none w-44 text-brand-navy font-sans"
+            disabled={isDisabled}
+          />
+          .
+        </p>
+
+        <hr className="border-t border-gray-200 my-8" />
+
+        {/* Bottom Signatures Block */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 text-sm font-sans">
+          {/* Requested By Block */}
+          <div className="space-y-3 bg-white border border-gray-150 rounded-xl p-4.5">
+            <div className="flex justify-between items-center border-b border-gray-100 pb-1.5">
+              <span className="font-bold text-gray-550 text-xs">REQUESTED BY</span>
+              <input
+                type="text"
+                required
+                value={requestedBy}
+                onChange={(e) => setRequestedBy(e.target.value)}
+                className="bg-transparent border-0 border-b border-transparent focus:border-brand-orange text-right outline-none font-bold text-brand-navy w-44"
+                disabled={isDisabled}
+                placeholder="Enter Submitter Name"
+              />
+            </div>
+            
+            <SignaturePad
+              label="SUBMITTER SIGNATURE"
+              role="Requested By"
+              onSign={setSubmitterSignature}
+              savedSignature={submitterSignature}
+              disabled={isDisabled}
+            />
+          </div>
+
+          {/* Approved By Block */}
+          <div className="space-y-3 bg-white border border-gray-150 rounded-xl p-4.5">
+            <div className="flex justify-between items-center border-b border-gray-100 pb-1.5">
+              <span className="font-bold text-gray-550 text-xs">APPROVED BY</span>
+              <span className="font-bold text-brand-navy">{approvedByVal}</span>
+            </div>
+            
+            <div className="flex justify-between items-center border-b border-gray-100 pb-1.5">
+               <span className="font-bold text-gray-550 text-xs">DATE</span>
+               <span className="font-bold text-brand-navy">{approvedAtVal}</span>
+            </div>
+
+            <SignaturePad
+              label="APPROVER SIGNATURE"
+              role="Approved By"
+              onSign={setApproverSignature}
+              savedSignature={approverSignature}
+              disabled={isAuthorizerDisabled}
+            />
+          </div>
         </div>
       </div>
     </FormWrapper>

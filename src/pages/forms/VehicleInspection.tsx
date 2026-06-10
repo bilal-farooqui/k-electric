@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { FormWrapper } from '../../components/FormWrapper';
 import { SignaturePad } from '../../components/SignaturePad';
 import { Tooltip } from '../../components/Tooltip';
+import { ShieldCheck, ShieldAlert } from 'lucide-react';
 import type { Permit } from '../../types/ptw';
 
 interface FormProps {
@@ -21,25 +22,26 @@ export const VehicleInspection: React.FC<FormProps> = ({ permits, onSetPermits, 
   const [status, setStatus] = useState<'draft' | 'pending' | 'approved' | 'rejected'>('draft');
 
   // Form State
-  const [plateNo, setPlateNo] = useState('');
-  const [vehicleType, setVehicleType] = useState('Bucket Truck');
+  const [vehicleNo, setVehicleNo] = useState('');
   const [driverName, setDriverName] = useState('');
-  const [odometer, setOdometer] = useState('');
-  const [inspectionDate, setInspectionDate] = useState(new Date().toISOString().split('T')[0]);
+  const [supervisorName, setSupervisorName] = useState('');
+  const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
+  const [dispatchTime, setDispatchTime] = useState('');
+  const [damageObservation, setDamageObservation] = useState('');
+  const [signature, setSignature] = useState('');
   const [checklist, setChecklist] = useState<Record<string, 'good' | 'damaged'>>({
-    brakes: 'good',
-    tires: 'good',
-    lights: 'good',
+    headlights: 'good',
+    indicators: 'good',
     horn: 'good',
-    wipers: 'good',
-    seatbelts: 'good',
+    tires: 'good',
+    fuel: 'good',
+    brakes: 'good',
     extinguisher: 'good',
     firstaid: 'good',
-    cones: 'good',
-    winch: 'good',
+    seatbelts: 'good',
   });
-  const [signature, setSignature] = useState('');
 
+  // Load existing data if editId is provided
   useEffect(() => {
     const existing = editId ? permits.find((p) => p.id === editId) : null;
     if (existing) {
@@ -47,33 +49,38 @@ export const VehicleInspection: React.FC<FormProps> = ({ permits, onSetPermits, 
       setStatus(existing.status);
       const data = existing.formData;
       if (data) {
-        setPlateNo(data.plateNo || '');
-        setVehicleType(data.vehicleType || 'Bucket Truck');
+        setVehicleNo(data.vehicleNo || '');
         setDriverName(data.driverName || '');
-        setOdometer(data.odometer || '');
-        setInspectionDate(data.inspectionDate || '');
+        setSupervisorName(data.supervisorName || '');
+        setDate(data.date || '');
+        setDispatchTime(data.dispatchTime || '');
+        setDamageObservation(data.damageObservation || '');
         setChecklist(data.checklist || {});
         setSignature(data.signature || '');
       }
     } else {
       setPermitId(`KE-VI-${Math.floor(100000 + Math.random() * 900000)}`);
       setStatus('draft');
-      setPlateNo('');
-      setVehicleType('Bucket Truck');
+      setVehicleNo('');
       setDriverName(currentUser?.name || '');
-      setOdometer('');
-      setInspectionDate(new Date().toISOString().split('T')[0]);
+      setSupervisorName('');
+      setDate(new Date().toISOString().split('T')[0]);
+      // Set current time as default format HH:MM
+      const now = new Date();
+      const HH = String(now.getHours()).padStart(2, '0');
+      const MM = String(now.getMinutes()).padStart(2, '0');
+      setDispatchTime(`${HH}:${MM}`);
+      setDamageObservation('');
       setChecklist({
-        brakes: 'good',
-        tires: 'good',
-        lights: 'good',
+        headlights: 'good',
+        indicators: 'good',
         horn: 'good',
-        wipers: 'good',
-        seatbelts: 'good',
+        tires: 'good',
+        fuel: 'good',
+        brakes: 'good',
         extinguisher: 'good',
         firstaid: 'good',
-        cones: 'good',
-        winch: 'good',
+        seatbelts: 'good',
       });
       setSignature('');
     }
@@ -92,11 +99,12 @@ export const VehicleInspection: React.FC<FormProps> = ({ permits, onSetPermits, 
       createdAt: new Date().toLocaleString(),
       submittedBy: driverName,
       formData: {
-        plateNo,
-        vehicleType,
+        vehicleNo,
         driverName,
-        odometer,
-        inspectionDate,
+        supervisorName,
+        date,
+        dispatchTime,
+        damageObservation,
         checklist,
         signature,
       },
@@ -119,16 +127,17 @@ export const VehicleInspection: React.FC<FormProps> = ({ permits, onSetPermits, 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!plateNo || !odometer || !driverName) {
-      alert('Please fill out all basic information metadata fields.');
+    if (!vehicleNo || !driverName || !supervisorName || !date || !dispatchTime) {
+      alert('Please fill out all basic information details.');
       return;
     }
 
     if (!signature) {
-      alert('A digital signature or authorization stamp is required to submit.');
+      alert('A digital driver signature is required to submit.');
       return;
     }
 
+    // If any safety item is flagged as damaged, require supervisor sign-off manually
     const hasDamagedItems = Object.values(checklist).some((val) => val === 'damaged');
     const finalStatus = hasDamagedItems ? 'pending' : 'approved';
 
@@ -142,11 +151,12 @@ export const VehicleInspection: React.FC<FormProps> = ({ permits, onSetPermits, 
       approvedBy: finalStatus === 'approved' ? 'Automated System Verification' : undefined,
       approvedAt: finalStatus === 'approved' ? new Date().toLocaleString() : undefined,
       formData: {
-        plateNo,
-        vehicleType,
+        vehicleNo,
         driverName,
-        odometer,
-        inspectionDate,
+        supervisorName,
+        date,
+        dispatchTime,
+        damageObservation,
         checklist,
         signature,
       },
@@ -166,7 +176,7 @@ export const VehicleInspection: React.FC<FormProps> = ({ permits, onSetPermits, 
     setStatus(finalStatus);
     alert(
       hasDamagedItems
-        ? 'Permit submitted with safety concerns. Awaiting Shift Engineer approval.'
+        ? 'Permit submitted with safety concerns. Awaiting Supervisor approval.'
         : 'Permit submitted and auto-authorized!'
     );
     navigate('/');
@@ -178,7 +188,7 @@ export const VehicleInspection: React.FC<FormProps> = ({ permits, onSetPermits, 
     const updatedPermit: Permit = {
       ...existing,
       status: 'approved',
-      approvedBy: `${currentUser?.name || 'Admin'} (${currentUser?.role || 'Safety Officer'})`,
+      approvedBy: `${currentUser?.name || 'Supervisor'} (${currentUser?.role || 'Safety Officer'})`,
       approvedAt: new Date().toLocaleString(),
     };
     const index = permits.findIndex((p) => p.id === permitId);
@@ -190,7 +200,7 @@ export const VehicleInspection: React.FC<FormProps> = ({ permits, onSetPermits, 
     }
     onSetPermits(updated);
     setStatus('approved');
-    alert('Permit approved successfully!');
+    alert('Permit approved successfully by Supervisor!');
     navigate('/admin');
   };
 
@@ -200,6 +210,8 @@ export const VehicleInspection: React.FC<FormProps> = ({ permits, onSetPermits, 
     const updatedPermit: Permit = {
       ...existing,
       status: 'rejected',
+      approvedBy: `${currentUser?.name || 'Supervisor'} (${currentUser?.role || 'Safety Officer'})`,
+      approvedAt: new Date().toLocaleString(),
     };
     const index = permits.findIndex((p) => p.id === permitId);
     let updated = [...permits];
@@ -215,44 +227,45 @@ export const VehicleInspection: React.FC<FormProps> = ({ permits, onSetPermits, 
   };
 
   const items = [
-    { key: 'brakes', label: 'Brake System & Fluid Level', tooltip: 'Test foot brake and parking brake response.' },
-    { key: 'tires', label: 'Tires & Inflation Pressure', tooltip: 'Ensure tread depth is safe and pressure is at PSI spec.' },
-    { key: 'lights', label: 'Lights, Blinkers & Horn', tooltip: 'Check headlamps, hazard lights, indicators and reverse horn.' },
-    { key: 'wipers', label: 'Windshield Wipers & Fluid', tooltip: 'Verify blades wipe cleanly without streaks.' },
-    { key: 'seatbelts', label: 'Safety Seat Belts', tooltip: 'Ensure buckle holds firmly and straps retract.' },
-    { key: 'extinguisher', label: 'Cabin Fire Extinguisher', tooltip: 'Check pressure dial gauge in the green zone.' },
-    { key: 'firstaid', label: 'First Aid Kit Content', tooltip: 'Ensure bandages, antiseptic wipes, and burn creams are present.' },
-    { key: 'cones', label: 'Traffic Safety Cones (x4)', tooltip: 'Ensure 4 reflective orange safety cones are loaded.' },
-    { key: 'winch', label: 'Cable Puller / Winch', tooltip: 'Inspect bucket truck hoist or wire winch cables.' },
+    { key: 'headlights', label: 'Headlights Working', tooltip: 'Verify both headlights and high/low beams are operational.' },
+    { key: 'indicators', label: 'Indicators Working', tooltip: 'Test left, right, hazard lights, and side blinkers.' },
+    { key: 'horn', label: 'Horn Working', tooltip: 'Check that the horn responds clearly.' },
+    { key: 'tires', label: 'Tire Condition OK', tooltip: 'Check that tires have adequate tread and no visible cuts or low pressure.' },
+    { key: 'fuel', label: 'Fuel Sufficient', tooltip: 'Verify fuel level indicator is sufficient for the shift.' },
+    { key: 'brakes', label: 'Brakes Functioning', tooltip: 'Test foot brake response and confirm handbrake holds securely.' },
+    { key: 'extinguisher', label: 'Fire Extinguisher Available', tooltip: 'Ensure cabin fire extinguisher is present, sealed, and in-gauge.' },
+    { key: 'firstaid', label: 'First Aid Box Available', tooltip: 'Verify first aid medical kit is present and stocked.' },
+    { key: 'seatbelts', label: 'Seat Belts Available', tooltip: 'Ensure seat belts retract and buckle holds firmly.' },
   ];
 
   const isDisabled = status === 'approved' || status === 'rejected' || (currentUser?.role === 'Principal Safety Officer' && status === 'pending');
 
   return (
     <FormWrapper
-      title="Vehicle Safety Inspection Sheet"
+      title="1. VEHICLE INSPECTION CHECKLIST PTW"
       code={formCode}
       permitId={permitId}
       status={status}
       onSaveDraft={handleSaveDraft}
       onSubmit={handleSubmit}
-      isAdmin={currentUser?.role === 'Principal Safety Officer'}
+      isAdmin={currentUser?.label === 'admin'}
       onApprove={handleApprove}
       onReject={handleReject}
     >
       {/* SECTION 1: BASIC INFORMATION */}
       <div className="space-y-4">
         <h3 className="text-xs font-bold text-brand-navy tracking-wider uppercase border-b border-gray-150 pb-2">
-          I. Basic Vehicle & Dispatch Details
+          BASIC INFORMATION
         </h3>
         
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
           <div>
-            <label className="text-xs font-bold text-gray-550 block mb-1">VEHICLE PLATE NUMBER</label>
+            <label className="text-xs font-bold text-gray-550 block mb-1">VEHICLE NUMBER</label>
             <input
               type="text"
-              value={plateNo}
-              onChange={(e) => setPlateNo(e.target.value)}
+              required
+              value={vehicleNo}
+              onChange={(e) => setVehicleNo(e.target.value)}
               placeholder="e.g. JE-9382"
               className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-brand-orange"
               disabled={isDisabled}
@@ -260,36 +273,10 @@ export const VehicleInspection: React.FC<FormProps> = ({ permits, onSetPermits, 
           </div>
 
           <div>
-            <label className="text-xs font-bold text-gray-550 block mb-1">VEHICLE CATEGORY</label>
-            <select
-              value={vehicleType}
-              onChange={(e) => setVehicleType(e.target.value)}
-              className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-brand-orange"
-              disabled={isDisabled}
-            >
-              <option>Bucket Truck</option>
-              <option>Crane Truck</option>
-              <option>Standard Pickup</option>
-              <option>Inspection Van</option>
-            </select>
-          </div>
-
-          <div>
-            <label className="text-xs font-bold text-gray-550 block mb-1">ODOMETER READING (KM)</label>
-            <input
-              type="number"
-              value={odometer}
-              onChange={(e) => setOdometer(e.target.value)}
-              placeholder="e.g. 14205"
-              className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-brand-orange"
-              disabled={isDisabled}
-            />
-          </div>
-
-          <div>
-            <label className="text-xs font-bold text-gray-550 block mb-1">DRIVER IN-CHARGE</label>
+            <label className="text-xs font-bold text-gray-555 block mb-1">DRIVER NAME</label>
             <input
               type="text"
+              required
               value={driverName}
               onChange={(e) => setDriverName(e.target.value)}
               className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-brand-orange"
@@ -298,11 +285,37 @@ export const VehicleInspection: React.FC<FormProps> = ({ permits, onSetPermits, 
           </div>
 
           <div>
-            <label className="text-xs font-bold text-gray-550 block mb-1">INSPECTION DATE</label>
+            <label className="text-xs font-bold text-gray-555 block mb-1">SUPERVISOR NAME</label>
+            <input
+              type="text"
+              required
+              value={supervisorName}
+              onChange={(e) => setSupervisorName(e.target.value)}
+              placeholder="e.g. Salim Qureshi"
+              className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-brand-orange"
+              disabled={isDisabled}
+            />
+          </div>
+
+          <div>
+            <label className="text-xs font-bold text-gray-555 block mb-1">DATE</label>
             <input
               type="date"
-              value={inspectionDate}
-              onChange={(e) => setInspectionDate(e.target.value)}
+              required
+              value={date}
+              onChange={(e) => setDate(e.target.value)}
+              className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-brand-orange"
+              disabled={isDisabled}
+            />
+          </div>
+
+          <div>
+            <label className="text-xs font-bold text-gray-555 block mb-1">DISPATCH TIME</label>
+            <input
+              type="time"
+              required
+              value={dispatchTime}
+              onChange={(e) => setDispatchTime(e.target.value)}
               className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-brand-orange"
               disabled={isDisabled}
             />
@@ -314,9 +327,9 @@ export const VehicleInspection: React.FC<FormProps> = ({ permits, onSetPermits, 
       <div className="space-y-4">
         <div className="flex justify-between items-center border-b border-gray-150 pb-2">
           <h3 className="text-xs font-bold text-brand-navy tracking-wider uppercase">
-            II. Safety Verification Points
+            CHECKLIST
           </h3>
-          <span className="text-[10px] text-gray-400 font-medium italic">Hover info icon for inspection criteria</span>
+          <span className="text-[10px] text-gray-400 font-medium italic">Hover info icon for verification criteria</span>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -361,12 +374,63 @@ export const VehicleInspection: React.FC<FormProps> = ({ permits, onSetPermits, 
         </div>
       </div>
 
-      {/* SECTION 3: AUTHORIZATION */}
+      {/* SECTION 3: REMARKS */}
       <div className="space-y-4">
         <h3 className="text-xs font-bold text-brand-navy tracking-wider uppercase border-b border-gray-150 pb-2">
-          III. Authorization Sign-Off
+          REMARKS
         </h3>
 
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {/* Damage Observation Text Field */}
+          <div>
+            <label className="text-xs font-bold text-gray-555 block mb-1">DAMAGE OBSERVATION</label>
+            <textarea
+              value={damageObservation}
+              onChange={(e) => setDamageObservation(e.target.value)}
+              placeholder="Describe any damaged parts or issues here..."
+              rows={4}
+              className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-brand-orange"
+              disabled={isDisabled}
+            />
+          </div>
+
+          {/* Supervisor Approval Stamp */}
+          <div className="bg-gray-50 border border-gray-200 rounded-xl p-4.5 flex flex-col justify-between h-fit min-h-[120px]">
+            <span className="text-xs font-bold text-gray-450 block uppercase tracking-wider">SUPERVISOR APPROVAL</span>
+            
+            <div className="mt-4 flex items-center gap-3">
+              {status === 'approved' ? (
+                <div className="flex items-center gap-2 text-emerald-650 font-bold text-sm bg-emerald-50 border border-emerald-200 px-3.5 py-2 rounded-xl shadow-xs">
+                  <ShieldCheck className="h-5 w-5" />
+                  <div>
+                    <div>APPROVED & SIGNED</div>
+                    <div className="text-[10px] text-gray-500 font-mono font-normal mt-0.5">Verified by Supervisor</div>
+                  </div>
+                </div>
+              ) : status === 'rejected' ? (
+                <div className="flex items-center gap-2 text-red-650 font-bold text-sm bg-red-50 border border-red-200 px-3.5 py-2 rounded-xl shadow-xs">
+                  <ShieldAlert className="h-5 w-5" />
+                  <div>
+                    <div>SAFETY REJECTED</div>
+                    <div className="text-[10px] text-gray-500 font-mono font-normal mt-0.5">Verification failed</div>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex items-center gap-2 text-amber-600 font-bold text-sm bg-amber-50 border border-amber-200 px-3.5 py-2 rounded-xl shadow-xs animate-pulse">
+                  <ShieldAlert className="h-5 w-5" />
+                  <div>
+                    <div>AWAITING SIGN-OFF</div>
+                    <div className="text-[10px] text-gray-500 font-mono font-normal mt-0.5">Pending Supervisor verification</div>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* DRIVER SIGNATURE */}
+      <div className="space-y-4 pt-4 border-t border-gray-200">
         <div className="max-w-md">
           <SignaturePad
             label="DRIVER SIGNATURE"

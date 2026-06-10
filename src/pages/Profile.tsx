@@ -15,19 +15,17 @@ export const Profile: React.FC<ProfileProps> = ({
 }) => {
   const [name, setName] = useState(currentUser.name);
   const [badgeId, setBadgeId] = useState(currentUser.badgeId);
-  const [department, setDepartment] = useState(currentUser.department);
   const [isSaving, setIsSaving] = useState(false);
 
   // Sync state if currentUser changes
   useEffect(() => {
     setName(currentUser.name);
     setBadgeId(currentUser.badgeId);
-    setDepartment(currentUser.department);
   }, [currentUser]);
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name || !badgeId || !department) {
+    if (!name || !badgeId) {
       alert('All profile fields must be filled.');
       return;
     }
@@ -36,7 +34,6 @@ export const Profile: React.FC<ProfileProps> = ({
       await onUpdateProfile(currentUserUsername, {
         name,
         badgeId,
-        department,
       });
       alert('Profile details successfully synchronized with MongoDB database!');
     } catch (err) {
@@ -85,10 +82,6 @@ export const Profile: React.FC<ProfileProps> = ({
               <span className="text-gray-400">Badge ID:</span>
               <span className="text-brand-accent font-bold">{badgeId}</span>
             </div>
-            <div className="flex justify-between border-b border-white/5 pb-1.5">
-              <span className="text-gray-400">Section:</span>
-              <span className="text-white font-semibold truncate max-w-[150px] inline-block align-bottom">{department}</span>
-            </div>
             <div className="flex justify-between">
               <span className="text-gray-400">Clearance:</span>
               <span className="text-emerald-400 font-bold uppercase flex items-center gap-0.5">
@@ -128,16 +121,6 @@ export const Profile: React.FC<ProfileProps> = ({
                 />
               </div>
 
-              <div className="sm:col-span-2">
-                <label className="text-[10px] font-bold text-gray-550 block mb-1">DEPARTMENT / DIVISION</label>
-                <input
-                  type="text"
-                  value={department}
-                  onChange={(e) => setDepartment(e.target.value)}
-                  className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-xs font-semibold outline-none focus:border-brand-orange"
-                  placeholder="e.g. Distribution Operations Division"
-                />
-              </div>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs font-semibold text-gray-600 pt-2">

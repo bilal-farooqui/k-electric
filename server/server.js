@@ -64,7 +64,6 @@ const userProfileSchema = new mongoose.Schema({
   name: { type: String, required: true },
   role: { type: String, required: true }, // display role / job title
   badgeId: { type: String, required: true },
-  department: { type: String, required: true },
   label: { type: String, enum: ['admin', 'employee'], default: 'employee' },
   avatarUrl: String,
 });
@@ -162,14 +161,12 @@ const initialProfiles = [
     name: 'Maheen Mahad',
     role: 'Principal Safety Officer',
     badgeId: 'KE-7492',
-    department: 'Transmission & Safety Division',
   },
   {
     username: 'employee',
     name: 'Arif Khan',
     role: 'Field Technician',
     badgeId: 'KE-0284',
-    department: 'Distribution Operations Division',
   },
 ];
 
@@ -187,36 +184,42 @@ async function seedDatabase() {
       console.log('Seeded database with initial notifications.');
     }
 
-    const profiles = await UserProfile.find();
-    if (profiles.length === 0) {
-      const saltedProfiles = initialProfiles.map(p => ({
-        ...p,
-        password: hashPassword(p.username === 'admin' ? 'admin123' : 'employee123'),
-        label: p.username === 'admin' ? 'admin' : 'employee'
-      }));
-      await UserProfile.insertMany(saltedProfiles);
-      console.log('Seeded database with initial user profiles.');
-    } else {
-      // Ensure existing profiles have passwords and labels
-      for (const p of profiles) {
-        let updated = false;
-        if (!p.password) {
-          p.password = hashPassword(p.username === 'admin' ? 'admin123' : 'employee123');
-          updated = true;
-        }
-        if (p.username === 'admin' && p.label !== 'admin') {
-          p.label = 'admin';
-          updated = true;
-        } else if (p.username !== 'admin' && !p.label) {
-          p.label = 'employee';
-          updated = true;
-        }
-        if (updated) {
-          await p.save();
-        }
+    // Seed default profiles if they do not exist
+    for (const pInfo of initialProfiles) {
+      const exists = await UserProfile.findOne({ username: pInfo.username });
+      if (!exists) {
+        const password = hashPassword(pInfo.username === 'admin' ? 'admin123' : 'employee123');
+        const label = pInfo.username === 'admin' ? 'admin' : 'employee';
+        const newProfile = new UserProfile({
+          ...pInfo,
+          password,
+          label
+        });
+        await newProfile.save();
+        console.log(`Seeded default profile for: ${pInfo.username}`);
       }
-      console.log('Verified user profiles and updated credentials/labels.');
     }
+
+    // Ensure all existing user profiles have password and label updates
+    const profiles = await UserProfile.find();
+    for (const p of profiles) {
+      let updated = false;
+      if (!p.password) {
+        p.password = hashPassword(p.username === 'admin' ? 'admin123' : 'employee123');
+        updated = true;
+      }
+      if (p.username === 'admin' && p.label !== 'admin') {
+        p.label = 'admin';
+        updated = true;
+      } else if (p.username !== 'admin' && !p.label) {
+        p.label = 'employee';
+        updated = true;
+      }
+      if (updated) {
+        await p.save();
+      }
+    }
+    console.log('Verified user profiles and updated credentials/labels.');
   } catch (error) {
     console.error('Error seeding database:', error);
   }
@@ -239,11 +242,68 @@ app.post('/api/permits', async (req, res) => {
       return res.status(400).json({ error: 'Permit id is required' });
     }
 
+    // Capture existing state to detect status modifications
+    const existingPermit = await Permit.findOne({ id: permitData.id });
+
     const permit = await Permit.findOneAndUpdate(
       { id: permitData.id },
       permitData,
       { new: true, upsert: true }
     );
+
+    const timeString = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+    // Generate dynamic notifications
+    if (!existingPermit) {
+      // Fresh permit created
+      let title = 'Permit Draft Saved';
+      let message = `Permit ${permit.id} (${permit.type.replace('-', ' ')}) was saved as draft.`;
+      let type = 'info';
+
+      if (permit.status === 'pending') {
+        title = 'New Permit Pending Sign-off';
+        message = `Permit ${permit.id} submitted by ${permit.submittedBy} is awaiting approval.`;
+        type = 'warning';
+      }
+
+      await Notification.create({
+        id: `notif-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+        title,
+        message,
+        time: timeString,
+        type,
+        read: false,
+      });
+    } else if (existingPermit.status !== permit.status) {
+      // Status transition
+      let title = 'Permit Status Updated';
+      let message = `Permit ${permit.id} status changed from ${existingPermit.status} to ${permit.status}.`;
+      let type = 'info';
+
+      if (permit.status === 'approved') {
+        title = 'Permit Sign-off Approved';
+        message = `Permit ${permit.id} has been approved by ${permit.approvedBy || 'Control Room'}.`;
+        type = 'info';
+      } else if (permit.status === 'rejected') {
+        title = 'Permit Safety Check Failed';
+        message = `Permit ${permit.id} safety checklist verification failed (Rejected).`;
+        type = 'alert';
+      } else if (permit.status === 'pending') {
+        title = 'Permit Resubmitted';
+        message = `Permit ${permit.id} resubmitted by ${permit.submittedBy} is awaiting approval.`;
+        type = 'warning';
+      }
+
+      await Notification.create({
+        id: `notif-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+        title,
+        message,
+        time: timeString,
+        type,
+        read: false,
+      });
+    }
+
     res.json(permit);
   } catch (err) {
     res.status(500).json({ error: 'Failed to save/update permit', details: err.message });
@@ -252,7 +312,7 @@ app.post('/api/permits', async (req, res) => {
 
 app.get('/api/notifications', async (req, res) => {
   try {
-    const notifications = await Notification.find();
+    const notifications = await Notification.find().sort({ _id: -1 }).limit(30);
     res.json(notifications);
   } catch (err) {
     res.status(500).json({ error: 'Failed to retrieve notifications' });
@@ -298,8 +358,8 @@ app.post('/api/profiles/:username', async (req, res) => {
 // AUTH SIGNUP
 app.post('/api/auth/signup', async (req, res) => {
   try {
-    const { username, password, name, role, badgeId, department } = req.body;
-    if (!username || !password || !name || !role || !badgeId || !department) {
+    const { username, password, name, role, badgeId } = req.body;
+    if (!username || !password || !name || !role || !badgeId) {
       return res.status(400).json({ error: 'All profile registration fields are required' });
     }
 
@@ -315,7 +375,6 @@ app.post('/api/auth/signup', async (req, res) => {
       name,
       role, // job title
       badgeId,
-      department,
       label,
     });
 

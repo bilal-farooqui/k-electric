@@ -37,7 +37,6 @@ export interface UserProfile {
   name: string;
   role: string;
   badgeId: string;
-  department: string;
   label: 'admin' | 'employee';
   avatarUrl?: string;
 }

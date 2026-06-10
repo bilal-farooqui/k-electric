@@ -75,32 +75,6 @@ const initialMockPermits: Permit[] = [
   },
 ];
 
-const initialNotifications: Notification[] = [
-  {
-    id: 'notif-1',
-    title: 'High Wind Velocity Warning',
-    message: 'Extreme wind speeds (>22 knots) forecast. Postpone high-work bucket deployments.',
-    time: '15 mins ago',
-    type: 'alert',
-    read: false,
-  },
-  {
-    id: 'notif-2',
-    title: 'Outage Permit Awaiting Earth Switch',
-    message: 'Permit KE-LI-940284 is pending line grounding confirmation.',
-    time: '2 hours ago',
-    type: 'warning',
-    read: false,
-  },
-  {
-    id: 'notif-3',
-    title: 'Safety Drill Scheduled',
-    message: 'Mandatory industrial rescue simulation drills this Friday 09:00 at Central Substation.',
-    time: '1 day ago',
-    type: 'info',
-    read: true,
-  },
-];
 
 
 
@@ -133,6 +107,20 @@ function App() {
     ? (profiles.find((p) => p.username === currentUser.username) || currentUser)
     : null;
 
+  const fetchNotifications = () => {
+    fetch('/api/notifications')
+      .then((res) => {
+        if (!res.ok) throw new Error('Failed to fetch notifications');
+        return res.json();
+      })
+      .then((data) => {
+        setNotifications(data);
+      })
+      .catch((err) => {
+        console.error('Error loading notifications from API:', err);
+      });
+  };
+
   const setPermits = (value: React.SetStateAction<Permit[]>) => {
     setPermitsState((prev) => {
       const next = typeof value === 'function'
@@ -153,7 +141,10 @@ function App() {
           body: JSON.stringify(permit),
         })
           .then((res) => {
-            if (!res.ok) {
+            if (res.ok) {
+              // Refresh notifications dynamically immediately
+              fetchNotifications();
+            } else {
               console.error('Failed to sync permit:', permit.id);
             }
           })
@@ -196,19 +187,13 @@ function App() {
         }
       });
 
-    // 2. Fetch Notifications
-    fetch('/api/notifications')
-      .then((res) => {
-        if (!res.ok) throw new Error('Failed to fetch notifications');
-        return res.json();
-      })
-      .then((data) => {
-        setNotifications(data);
-      })
-      .catch((err) => {
-        console.error('Error loading notifications from API, falling back to initial values:', err);
-        setNotifications(initialNotifications);
-      });
+    // 2. Fetch Notifications on mount
+    fetchNotifications();
+
+    // Setup periodic polling for real-time notifications (every 12 seconds)
+    const notificationsTimer = setInterval(() => {
+      fetchNotifications();
+    }, 12000);
 
     // 3. Fetch User Profiles
     fetch('/api/profiles')
@@ -219,11 +204,30 @@ function App() {
       .then((data) => {
         if (data && data.length > 0) {
           setProfiles(data);
+          
+          // Sync active user session with DB state if any profile properties like roles or labels changed
+          const myDbProfile = data.find((p: any) => p.username === currentUser?.username);
+          if (myDbProfile) {
+            const hasChanges = 
+              myDbProfile.label !== currentUser?.label || 
+              myDbProfile.name !== currentUser?.name ||
+              myDbProfile.role !== currentUser?.role ||
+              myDbProfile.badgeId !== currentUser?.badgeId;
+            
+            if (hasChanges) {
+              setCurrentUser(myDbProfile);
+              localStorage.setItem('ke_ptw_user', JSON.stringify(myDbProfile));
+            }
+          }
         }
       })
       .catch((err) => {
         console.error('Error loading profiles from API:', err);
       });
+
+    return () => {
+      clearInterval(notificationsTimer);
+    };
   }, [currentUser]);
 
   const handleMarkAllRead = () => {
@@ -255,7 +259,7 @@ function App() {
   };
 
   const handleSwitchRole = (roleMode: string) => {
-    if (currentUser?.label === 'admin') {
+    if (activeProfile?.label === 'admin') {
       setActiveRoleMode(roleMode as 'admin' | 'employee');
     }
   };
@@ -295,7 +299,7 @@ function App() {
     return <Auth onLoginSuccess={handleLoginSuccess} />;
   }
 
-  const isAdminAccount = currentUser.label === 'admin';
+  const isAdminAccount = activeProfile?.label === 'admin';
   const showAdminDashboard = isAdminAccount && activeRoleMode === 'admin';
 
   return (

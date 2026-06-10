@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { FormWrapper } from '../../components/FormWrapper';
 import { SignaturePad } from '../../components/SignaturePad';
 import { Tooltip } from '../../components/Tooltip';
+import { ShieldCheck, ShieldAlert, Clock } from 'lucide-react';
 import type { Permit } from '../../types/ptw';
 
 interface FormProps {
@@ -21,29 +22,31 @@ export const ToolsPPE: React.FC<FormProps> = ({ permits, onSetPermits, currentUs
   const [status, setStatus] = useState<'draft' | 'pending' | 'approved' | 'rejected'>('draft');
 
   // Form State
-  const [crewLeader, setCrewLeader] = useState('');
-  const [gridStation, setGridStation] = useState('Substation Clifton C');
-  const [workOrderId, setWorkOrderId] = useState('');
-  const [crewSize, setCrewSize] = useState('4');
-  const [inspectionDate, setInspectionDate] = useState(new Date().toISOString().split('T')[0]);
-  
-  const [checklist, setChecklist] = useState<Record<string, 'good' | 'defective' | 'missing'>>({
-    pliers: 'good',
-    screwdrivers: 'good',
-    megger: 'good',
-    multimeter: 'good',
-    earthrod: 'good',
-    ladder: 'good',
-    stick: 'good',
+  const [teamLeader, setTeamLeader] = useState('');
+  const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
+  const [faultId, setFaultId] = useState('');
+  const [workLocation, setWorkLocation] = useState('');
+  const [signature, setSignature] = useState('');
+  const [authSignature, setAuthSignature] = useState('');
+  const [checklist, setChecklist] = useState<Record<string, 'good' | 'damaged' | 'missing'>>({
+    // PPE
     helmet: 'good',
-    boots: 'good',
-    vest: 'good',
     gloves: 'good',
+    shoes: 'good',
+    jacket: 'good',
     goggles: 'good',
     harness: 'good',
+    // Tools
+    voltageDetector: 'good',
+    insulatedPliers: 'good',
+    cableCutter: 'good',
+    earthRod: 'good',
+    lotoKit: 'good',
+    ladder: 'good',
+    testingMeter: 'good',
   });
-  const [signature, setSignature] = useState('');
 
+  // Load existing data if editId is provided
   useEffect(() => {
     const existing = editId ? permits.find((p) => p.id === editId) : null;
     if (existing) {
@@ -51,42 +54,42 @@ export const ToolsPPE: React.FC<FormProps> = ({ permits, onSetPermits, currentUs
       setStatus(existing.status);
       const data = existing.formData;
       if (data) {
-        setCrewLeader(data.crewLeader || '');
-        setGridStation(data.gridStation || '');
-        setWorkOrderId(data.workOrderId || '');
-        setCrewSize(data.crewSize || '');
-        setInspectionDate(data.inspectionDate || '');
+        setTeamLeader(data.teamLeader || '');
+        setDate(data.date || '');
+        setFaultId(data.faultId || '');
+        setWorkLocation(data.workLocation || '');
         setChecklist(data.checklist || {});
         setSignature(data.signature || '');
+        setAuthSignature(data.authSignature || '');
       }
     } else {
       setPermitId(`KE-TP-${Math.floor(100000 + Math.random() * 900000)}`);
       setStatus('draft');
-      setCrewLeader(currentUser?.name || '');
-      setGridStation('Substation Clifton C');
-      setWorkOrderId('');
-      setCrewSize('4');
-      setInspectionDate(new Date().toISOString().split('T')[0]);
+      setTeamLeader(currentUser?.name || '');
+      setDate(new Date().toISOString().split('T')[0]);
+      setFaultId('');
+      setWorkLocation('');
       setChecklist({
-        pliers: 'good',
-        screwdrivers: 'good',
-        megger: 'good',
-        multimeter: 'good',
-        earthrod: 'good',
-        ladder: 'good',
-        stick: 'good',
         helmet: 'good',
-        boots: 'good',
-        vest: 'good',
         gloves: 'good',
+        shoes: 'good',
+        jacket: 'good',
         goggles: 'good',
         harness: 'good',
+        voltageDetector: 'good',
+        insulatedPliers: 'good',
+        cableCutter: 'good',
+        earthRod: 'good',
+        lotoKit: 'good',
+        ladder: 'good',
+        testingMeter: 'good',
       });
       setSignature('');
+      setAuthSignature('');
     }
   }, [permits, editId, currentUser]);
 
-  const toggleCheck = (item: string, val: 'good' | 'defective' | 'missing') => {
+  const toggleCheck = (item: string, val: 'good' | 'damaged' | 'missing') => {
     setChecklist((prev) => ({ ...prev, [item]: val }));
   };
 
@@ -97,15 +100,15 @@ export const ToolsPPE: React.FC<FormProps> = ({ permits, onSetPermits, currentUs
       title: 'Tools & PPE Checklist',
       status: 'draft',
       createdAt: new Date().toLocaleString(),
-      submittedBy: crewLeader,
+      submittedBy: teamLeader,
       formData: {
-        crewLeader,
-        gridStation,
-        workOrderId,
-        crewSize,
-        inspectionDate,
+        teamLeader,
+        date,
+        faultId,
+        workLocation,
         checklist,
         signature,
+        authSignature,
       },
     };
 
@@ -126,20 +129,20 @@ export const ToolsPPE: React.FC<FormProps> = ({ permits, onSetPermits, currentUs
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!workOrderId || !crewLeader) {
-      alert('Please fill out all basic information fields.');
+    if (!teamLeader || !date || !faultId || !workLocation) {
+      alert('Please fill out all General Information details.');
       return;
     }
 
     if (!signature) {
-      alert('A digital signature or authorization stamp is required to submit.');
+      alert('Team Leader signature is required to submit.');
       return;
     }
 
-    const hasCriticalIssues = Object.values(checklist).some(
-      (val) => val === 'defective' || val === 'missing'
+    const hasIssues = Object.values(checklist).some(
+      (val) => val === 'damaged' || val === 'missing'
     );
-    const finalStatus = hasCriticalIssues ? 'pending' : 'approved';
+    const finalStatus = hasIssues ? 'pending' : 'approved';
 
     const newPermit: Permit = {
       id: permitId,
@@ -147,17 +150,17 @@ export const ToolsPPE: React.FC<FormProps> = ({ permits, onSetPermits, currentUs
       title: 'Tools & PPE Checklist',
       status: finalStatus,
       createdAt: new Date().toLocaleString(),
-      submittedBy: crewLeader,
-      approvedBy: finalStatus === 'approved' ? 'Safety Officer Stamp' : undefined,
+      submittedBy: teamLeader,
+      approvedBy: finalStatus === 'approved' ? 'Automated System Verification' : undefined,
       approvedAt: finalStatus === 'approved' ? new Date().toLocaleString() : undefined,
       formData: {
-        crewLeader,
-        gridStation,
-        workOrderId,
-        crewSize,
-        inspectionDate,
+        teamLeader,
+        date,
+        faultId,
+        workLocation,
         checklist,
         signature,
+        authSignature: finalStatus === 'approved' ? 'STAMP::GREEN::Automated System Verification (System) - Authorized at ' + new Date().toLocaleString() : '',
       },
     };
 
@@ -174,21 +177,29 @@ export const ToolsPPE: React.FC<FormProps> = ({ permits, onSetPermits, currentUs
     localStorage.setItem('ke_ptw_permits', JSON.stringify(updated));
     setStatus(finalStatus);
     alert(
-      hasCriticalIssues
-        ? 'Defective or missing gear noted. Awaiting Safety Inspector approval.'
-        : 'Permit successfully verified and approved!'
+      hasIssues
+        ? 'Checklist submitted with gear concerns. Awaiting Supervisor approval.'
+        : 'Checklist submitted and approved!'
     );
     navigate('/');
   };
 
   const handleApprove = () => {
+    if (!authSignature && status === 'pending') {
+      alert('Supervisor signature is required under AUTHORIZATION to approve.');
+      return;
+    }
     const existing = permits.find((p) => p.id === permitId);
     if (!existing) return;
     const updatedPermit: Permit = {
       ...existing,
       status: 'approved',
-      approvedBy: `${currentUser?.name || 'Admin'} (${currentUser?.role || 'Safety Officer'})`,
+      approvedBy: `${currentUser?.name || 'Supervisor'} (${currentUser?.role || 'Safety Officer'})`,
       approvedAt: new Date().toLocaleString(),
+      formData: {
+        ...existing.formData,
+        authSignature,
+      }
     };
     const index = permits.findIndex((p) => p.id === permitId);
     let updated = [...permits];
@@ -199,7 +210,7 @@ export const ToolsPPE: React.FC<FormProps> = ({ permits, onSetPermits, currentUs
     }
     onSetPermits(updated);
     setStatus('approved');
-    alert('Permit approved successfully!');
+    alert('Permit approved successfully by Supervisor!');
     navigate('/admin');
   };
 
@@ -209,6 +220,12 @@ export const ToolsPPE: React.FC<FormProps> = ({ permits, onSetPermits, currentUs
     const updatedPermit: Permit = {
       ...existing,
       status: 'rejected',
+      approvedBy: `${currentUser?.name || 'Supervisor'} (${currentUser?.role || 'Safety Officer'})`,
+      approvedAt: new Date().toLocaleString(),
+      formData: {
+        ...existing.formData,
+        authSignature,
+      }
     };
     const index = permits.findIndex((p) => p.id === permitId);
     let updated = [...permits];
@@ -223,112 +240,114 @@ export const ToolsPPE: React.FC<FormProps> = ({ permits, onSetPermits, currentUs
     navigate('/admin');
   };
 
-  const tools = [
-    { key: 'pliers', label: 'Insulated Pliers (1000V rated)', tooltip: 'Must be rated for 1000V and free from crack/peel in insulation handles.' },
-    { key: 'screwdrivers', label: 'Insulated Screwdrivers Set', tooltip: 'Verify insulation covers the shaft right down to the tip.' },
-    { key: 'megger', label: 'Megger / Insulation Tester', tooltip: 'Test battery level and display calibration dates.' },
-    { key: 'multimeter', label: 'Digital Multimeter', tooltip: 'Ensure probes are intact and category rating matches feeder voltage.' },
-    { key: 'earthrod', label: 'Portable Ground / Earth Rod', tooltip: 'Check heavy duty copper clamp tightness and cable continuity.' },
-    { key: 'ladder', label: 'Fiberglass / A-Type Ladder', tooltip: 'Under no circumstances use aluminum ladders near power lines. Check fiberglass for cracks.' },
-    { key: 'stick', label: 'HV Telescopic Discharge Stick', tooltip: 'Insulated discharge stick checked for dry surface and structure integrity.' },
+  const ppeItems = [
+    { key: 'helmet', label: 'Safety Helmet', tooltip: 'Must be Class E rated. Check for cracks or suspension damage.' },
+    { key: 'gloves', label: 'Safety Gloves', tooltip: 'Verify class rating and date stamp. Conduct inflation leak check.' },
+    { key: 'shoes', label: 'Safety Shoes', tooltip: 'Insulated safety footwear. Sole must be intact without punctures.' },
+    { key: 'jacket', label: 'Reflective Jacket', tooltip: 'Hi-vis jacket. Reflective stripes must be clean.' },
+    { key: 'goggles', label: 'Safety Goggles', tooltip: 'Verify fit and scratch-free lens visibility.' },
+    { key: 'harness', label: 'Harness/Belt', tooltip: 'Fall protection harness. Webbing must be free from tears.' },
   ];
 
-  const ppe = [
-    { key: 'helmet', label: 'Utility Safety Helmet (Class E)', tooltip: 'Class E helmet rated for 20,000V electrical work. Inspect suspension straps.' },
-    { key: 'boots', label: 'Insulated Boots (11kV rated)', tooltip: 'Check rubber soles for wear, spikes, or metal punctures.' },
-    { key: 'vest', label: 'High-Visibility Safety Vest', tooltip: 'Must be clean, reflective, and visible at night.' },
-    { key: 'gloves', label: 'Insulated Rubber Gloves (Class 1)', tooltip: 'Perform air leak test prior to each use. Check date stamp.' },
-    { key: 'goggles', label: 'Arc Flash Goggles / Face Shield', tooltip: 'Arc rating must match prospective fault level (cal/cm²).' },
-    { key: 'harness', label: 'Full Body Safety Harness & Lanyard', tooltip: 'Required for any height work > 1.8m. Inspect D-rings and buckle clips.' },
+  const toolsItems = [
+    { key: 'voltageDetector', label: 'Voltage Detector', tooltip: 'Test operation on live source prior to checking lines.' },
+    { key: 'insulatedPliers', label: 'Insulated Pliers', tooltip: 'Insulation must be rated for 1000V with no cracks.' },
+    { key: 'cableCutter', label: 'Cable Cutter', tooltip: 'Verify cutting jaws are sharp and handles are insulated.' },
+    { key: 'earthRod', label: 'Earth Rod', tooltip: 'Verify copper grounding rod and flexible cable clamps are secure.' },
+    { key: 'lotoKit', label: 'LOTO Kit', tooltip: 'Locks, padlocks, tags, and hasps must be loaded.' },
+    { key: 'ladder', label: 'Ladder', tooltip: 'Fiberglass A-type ladder. Check rungs and anti-slip feet.' },
+    { key: 'testingMeter', label: 'Testing Meter', tooltip: 'Digital multimeter or insulation megger calibrated.' },
   ];
 
-  const isDisabled = status === 'approved' || status === 'rejected' || (currentUser?.role === 'Principal Safety Officer' && status === 'pending');
+  const isAuthorizerDisabled = status === 'approved' || status === 'rejected' || currentUser?.label !== 'admin';
+  const isDisabled = status === 'approved' || status === 'rejected' || (currentUser?.label === 'admin' && status === 'pending');
+
+  // Find approval data
+  const existingPermit = permits.find((p) => p.id === permitId);
+  const approvedByVal = existingPermit?.approvedBy || (status === 'pending' && currentUser?.label === 'admin' ? `${currentUser?.name} (${currentUser?.role || 'Safety Officer'})` : 'Awaiting Approval');
+  const approvedAtVal = existingPermit?.approvedAt || (status === 'pending' && currentUser?.label === 'admin' ? new Date().toLocaleDateString() + ' ' + new Date().toLocaleTimeString() : 'Pending Review');
 
   return (
     <FormWrapper
-      title="Tools & PPE Safety checklist"
+      title="2. TOOLS & PPE CHECKLIST PTW"
       code={formCode}
       permitId={permitId}
       status={status}
       onSaveDraft={handleSaveDraft}
       onSubmit={handleSubmit}
-      isAdmin={currentUser?.role === 'Principal Safety Officer'}
+      isAdmin={currentUser?.label === 'admin'}
       onApprove={handleApprove}
       onReject={handleReject}
     >
-      {/* SECTION 1: BASIC INFORMATION */}
+      {/* SECTION 1: GENERAL INFORMATION */}
       <div className="space-y-4">
         <h3 className="text-xs font-bold text-brand-navy tracking-wider uppercase border-b border-gray-150 pb-2">
-          I. Dispatch Parameters & Crew Details
+          GENERAL INFORMATION
         </h3>
         
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
           <div>
-            <label className="text-xs font-bold text-gray-550 block mb-1">CREW LEADER NAME</label>
+            <label className="text-xs font-bold text-gray-550 block mb-1">TEAM LEADER</label>
             <input
               type="text"
-              value={crewLeader}
-              onChange={(e) => setCrewLeader(e.target.value)}
-              className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-brand-orange"
+              required
+              value={teamLeader}
+              onChange={(e) => setTeamLeader(e.target.value)}
+              className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-brand-orange text-gray-700 font-medium disabled:bg-gray-50"
               disabled={isDisabled}
             />
           </div>
 
           <div>
-            <label className="text-xs font-bold text-gray-550 block mb-1">TARGET SUBSTATION / GRID</label>
-            <input
-              type="text"
-              value={gridStation}
-              onChange={(e) => setGridStation(e.target.value)}
-              className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-brand-orange"
-              disabled={isDisabled}
-            />
-          </div>
-
-          <div>
-            <label className="text-xs font-bold text-gray-550 block mb-1">WORK ORDER ID</label>
-            <input
-              type="text"
-              value={workOrderId}
-              onChange={(e) => setWorkOrderId(e.target.value)}
-              placeholder="e.g. WO-92840-A"
-              className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-brand-orange"
-              disabled={isDisabled}
-            />
-          </div>
-
-          <div>
-            <label className="text-xs font-bold text-gray-550 block mb-1">CREW SIZE (PEOPLE)</label>
-            <input
-              type="number"
-              value={crewSize}
-              onChange={(e) => setCrewSize(e.target.value)}
-              className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-brand-orange"
-              disabled={isDisabled}
-            />
-          </div>
-
-          <div>
-            <label className="text-xs font-bold text-gray-550 block mb-1">VERIFICATION DATE</label>
+            <label className="text-xs font-bold text-gray-550 block mb-1">DATE</label>
             <input
               type="date"
-              value={inspectionDate}
-              onChange={(e) => setInspectionDate(e.target.value)}
-              className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-brand-orange"
+              required
+              value={date}
+              onChange={(e) => setDate(e.target.value)}
+              className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-brand-orange text-gray-700 font-medium disabled:bg-gray-50"
+              disabled={isDisabled}
+            />
+          </div>
+
+          <div>
+            <label className="text-xs font-bold text-gray-550 block mb-1">FAULT ID</label>
+            <input
+              type="text"
+              required
+              value={faultId}
+              onChange={(e) => setFaultId(e.target.value)}
+              placeholder="e.g. FLT-9028A"
+              className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-brand-orange text-gray-700 font-medium disabled:bg-gray-50"
+              disabled={isDisabled}
+            />
+          </div>
+
+          <div>
+            <label className="text-xs font-bold text-gray-550 block mb-1">WORK LOCATION</label>
+            <input
+              type="text"
+              required
+              value={workLocation}
+              onChange={(e) => setWorkLocation(e.target.value)}
+              placeholder="e.g. Substation Feed B"
+              className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-brand-orange text-gray-700 font-medium disabled:bg-gray-50"
               disabled={isDisabled}
             />
           </div>
         </div>
       </div>
 
-      {/* SECTION 2: TOOLS CHECKLIST */}
+      <hr className="border-t-2 border-brand-primary/20 my-6" />
+
+      {/* SECTION 2: PPE CHECKLIST */}
       <div className="space-y-4">
         <h3 className="text-xs font-bold text-brand-navy tracking-wider uppercase border-b border-gray-150 pb-2">
-          II. Insulated Tools Inspection
+          PPE CHECKLIST
         </h3>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {tools.map((item) => (
+          {ppeItems.map((item) => (
             <div 
               key={item.key} 
               className="bg-white border border-gray-250 p-4.5 rounded-xl shadow-xs flex justify-between items-center hover:border-gray-350 transition-colors"
@@ -339,7 +358,7 @@ export const ToolsPPE: React.FC<FormProps> = ({ permits, onSetPermits, currentUs
               </div>
 
               <div className="flex gap-1.5">
-                {(['good', 'defective', 'missing'] as const).map((opt) => (
+                {(['good', 'damaged', 'missing'] as const).map((opt) => (
                   <button
                     key={opt}
                     type="button"
@@ -349,9 +368,9 @@ export const ToolsPPE: React.FC<FormProps> = ({ permits, onSetPermits, currentUs
                       checklist[item.key] === opt
                         ? opt === 'good'
                           ? 'bg-emerald-600 border border-emerald-700 text-white shadow-sm'
-                          : opt === 'defective'
+                          : opt === 'damaged'
                           ? 'bg-red-650 border border-red-700 text-white shadow-sm'
-                          : 'bg-amber-50 border border-amber-600 text-white shadow-sm'
+                          : 'bg-amber-500 border border-amber-600 text-white shadow-sm'
                         : 'bg-gray-100 hover:bg-gray-200 border border-gray-300 text-gray-700'
                     }`}
                   >
@@ -364,14 +383,16 @@ export const ToolsPPE: React.FC<FormProps> = ({ permits, onSetPermits, currentUs
         </div>
       </div>
 
-      {/* SECTION 3: PPE CHECKLIST */}
+      <hr className="border-t-2 border-brand-primary/20 my-6" />
+
+      {/* SECTION 3: TOOLS CHECKLIST */}
       <div className="space-y-4">
         <h3 className="text-xs font-bold text-brand-navy tracking-wider uppercase border-b border-gray-150 pb-2">
-          III. Personal Protective Equipment (PPE) Verification
+          TOOLS CHECKLIST
         </h3>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {ppe.map((item) => (
+          {toolsItems.map((item) => (
             <div 
               key={item.key} 
               className="bg-white border border-gray-250 p-4.5 rounded-xl shadow-xs flex justify-between items-center hover:border-gray-350 transition-colors"
@@ -382,7 +403,7 @@ export const ToolsPPE: React.FC<FormProps> = ({ permits, onSetPermits, currentUs
               </div>
 
               <div className="flex gap-1.5">
-                {(['good', 'defective', 'missing'] as const).map((opt) => (
+                {(['good', 'damaged', 'missing'] as const).map((opt) => (
                   <button
                     key={opt}
                     type="button"
@@ -392,9 +413,9 @@ export const ToolsPPE: React.FC<FormProps> = ({ permits, onSetPermits, currentUs
                       checklist[item.key] === opt
                         ? opt === 'good'
                           ? 'bg-emerald-600 border border-emerald-700 text-white shadow-sm'
-                          : opt === 'defective'
+                          : opt === 'damaged'
                           ? 'bg-red-650 border border-red-700 text-white shadow-sm'
-                          : 'bg-amber-50 border border-amber-600 text-white shadow-sm'
+                          : 'bg-amber-500 border border-amber-600 text-white shadow-sm'
                         : 'bg-gray-100 hover:bg-gray-200 border border-gray-300 text-gray-700'
                     }`}
                   >
@@ -407,22 +428,116 @@ export const ToolsPPE: React.FC<FormProps> = ({ permits, onSetPermits, currentUs
         </div>
       </div>
 
-      {/* SECTION 4: AUTHORIZATION */}
+      <hr className="border-t-2 border-brand-primary/20 my-6" />
+
+      {/* SECTION 4: CONDITION */}
       <div className="space-y-4">
         <h3 className="text-xs font-bold text-brand-navy tracking-wider uppercase border-b border-gray-150 pb-2">
-          IV. Safety Inspector Sign-Off
+          CONDITION
         </h3>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
+          <div className="flex items-center gap-2.5 bg-emerald-50/50 border border-emerald-150 p-3 rounded-xl text-gray-700">
+            <span className="h-4.5 w-4.5 rounded-lg bg-emerald-600 text-white font-bold flex items-center justify-center text-[9px]">G</span>
+            <div>
+              <span className="font-bold text-emerald-800 block">GOOD</span>
+              Gear is certified, undamaged, and safe for live operations.
+            </div>
+          </div>
+          <div className="flex items-center gap-2.5 bg-red-50/50 border border-red-150 p-3 rounded-xl text-gray-700">
+            <span className="h-4.5 w-4.5 rounded-lg bg-red-650 text-white font-bold flex items-center justify-center text-[9px]">D</span>
+            <div>
+              <span className="font-bold text-red-800 block">DAMAGED</span>
+              Gear shows signs of wear/cracks. Requires supervisor sign-off.
+            </div>
+          </div>
+          <div className="flex items-center gap-2.5 bg-amber-50/50 border border-amber-150 p-3 rounded-xl text-gray-700">
+            <span className="h-4.5 w-4.5 rounded-lg bg-amber-500 text-white font-bold flex items-center justify-center text-[9px]">M</span>
+            <div>
+              <span className="font-bold text-amber-800 block">MISSING</span>
+              Gear is absent. Operations restricted until replacement sourced.
+            </div>
+          </div>
+        </div>
+      </div>
 
+      <hr className="border-t-2 border-brand-primary/20 my-6" />
+
+      {/* SUBMISSION / TEAM LEADER SIGN-OFF */}
+      <div className="space-y-4">
+        <h3 className="text-xs font-bold text-brand-navy tracking-wider uppercase border-b border-gray-150 pb-2">
+          TEAM LEADER SIGN-OFF
+        </h3>
         <div className="max-w-md">
           <SignaturePad
-            label="SAFETY INSPECTOR SIGNATURE"
-            role="Safety Inspector / Supervisor"
+            label="TEAM LEADER SIGNATURE"
+            role="Team Leader / Dispatcher"
             onSign={setSignature}
             savedSignature={signature}
             disabled={isDisabled}
           />
         </div>
       </div>
+
+      <hr className="border-t-2 border-brand-primary/20 my-6" />
+
+      {/* SECTION 5: AUTHORIZATION */}
+      <div className="space-y-4">
+        <h3 className="text-xs font-bold text-brand-navy tracking-wider uppercase border-b border-gray-150 pb-2">
+          AUTHORIZATION
+        </h3>
+        
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+          <div>
+            <label className="text-xs font-bold text-gray-550 block mb-1">APPROVED BY</label>
+            <div className="w-full bg-gray-50 border border-gray-300 rounded-lg px-3 py-2 text-sm font-semibold text-gray-700 h-[38px] flex items-center">
+              {approvedByVal}
+            </div>
+          </div>
+
+          <div>
+            <label className="text-xs font-bold text-gray-550 block mb-1">TIME</label>
+            <div className="w-full bg-gray-50 border border-gray-300 rounded-lg px-3 py-2 text-sm font-semibold text-gray-700 h-[38px] flex items-center">
+              {approvedAtVal}
+            </div>
+          </div>
+
+          <div>
+            <label className="text-xs font-bold text-gray-550 block mb-1">STATUS</label>
+            <div className={`w-full border rounded-lg px-3 py-2 text-xs font-bold uppercase h-[38px] flex items-center justify-center gap-1.5 ${
+              status === 'approved' 
+                ? 'bg-emerald-50 border-emerald-300 text-emerald-800' 
+                : status === 'rejected' 
+                ? 'bg-red-50 border-red-300 text-red-800' 
+                : 'bg-amber-50 border-amber-300 text-amber-800 animate-pulse'
+            }`}>
+              {status === 'approved' ? (
+                <>
+                  <ShieldCheck className="h-4 w-4 text-emerald-600" /> LEVEL 4 SIGNED
+                </>
+              ) : status === 'rejected' ? (
+                <>
+                  <ShieldAlert className="h-4 w-4 text-red-650" /> VERIFICATION FAILED
+                </>
+              ) : (
+                <>
+                  <Clock className="h-4 w-4 text-amber-600" /> PENDING RE-SIGN
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+
+        <div className="mt-4 max-w-md">
+          <SignaturePad
+            label="SUPERVISOR SIGNATURE"
+            role="Authorized Supervisor"
+            onSign={setAuthSignature}
+            savedSignature={authSignature || (status === 'approved' && approvedByVal.includes('Automated System') ? 'STAMP::GREEN::Automated System Verification (System) - Authorized at ' + approvedAtVal : undefined)}
+            disabled={isAuthorizerDisabled}
+          />
+        </div>
+      </div>
     </FormWrapper>
   );
 };
+

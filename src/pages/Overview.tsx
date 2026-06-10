@@ -376,11 +376,10 @@ export const Overview: React.FC<OverviewProps> = ({ permits, onSetPermits, curre
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse">
               <thead>
-                <tr className="bg-gray-50 text-[10px] font-bold text-gray-555 uppercase border-b border-gray-250 tracking-wider">
+                <tr className="bg-gray-55 text-[10px] font-bold text-gray-555 uppercase border-b border-gray-250 tracking-wider">
                   <th className="px-5 py-3">Employee Details</th>
                   <th className="px-5 py-3">Username</th>
                   <th className="px-5 py-3">Badge ID</th>
-                  <th className="px-5 py-3">Department</th>
                   <th className="px-5 py-3">Portal Clearance Level</th>
                   <th className="px-5 py-3 text-right">Access Controls</th>
                 </tr>
@@ -401,7 +400,6 @@ export const Overview: React.FC<OverviewProps> = ({ permits, onSetPermits, curre
                       </td>
                       <td className="px-5 py-3.5 font-mono text-gray-600">{user.username}</td>
                       <td className="px-5 py-3.5 font-mono text-gray-600">{user.badgeId}</td>
-                      <td className="px-5 py-3.5 text-gray-600 font-semibold">{user.department}</td>
                       <td className="px-5 py-3.5">
                         <span className={`px-2.5 py-0.5 border text-[10px] font-bold rounded-full uppercase ${
                           isUserAdmin 

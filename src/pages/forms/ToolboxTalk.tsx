@@ -22,34 +22,29 @@ export const ToolboxTalk: React.FC<FormProps> = ({ permits, onSetPermits, curren
   const [status, setStatus] = useState<'draft' | 'pending' | 'approved' | 'rejected'>('draft');
 
   // Form State
+  const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
+  const [siteLocation, setSiteLocation] = useState('');
   const [supervisorName, setSupervisorName] = useState('');
-  const [talkDate, setTalkDate] = useState(new Date().toISOString().split('T')[0]);
-  const [location, setLocation] = useState('Feeder 11kV - Clifton block 4');
-  const [workOrderId, setWorkOrderId] = useState('');
-  
-  const [hazards, setHazards] = useState<Record<string, boolean>>({
-    shock: false,
-    heights: false,
-    overhead: false,
-    trips: false,
-    machinery: false,
-    cavein: false,
-    heat: false,
-  });
+  const [teamLeader, setTeamLeader] = useState('');
 
-  const [mitigations, setMitigations] = useState<Record<string, boolean>>({
+  const [natureOfJob, setNatureOfJob] = useState('');
+  const [hazardIdentification, setHazardIdentification] = useState('');
+  const [riskLevel, setRiskLevel] = useState('Low');
+
+  const [safetyDiscussion, setSafetyDiscussion] = useState<Record<string, boolean>>({
+    electrical: false,
+    excavation: false,
+    traffic: false,
     ppe: false,
-    testdead: false,
-    barriers: false,
-    earth: false,
-    watcher: false,
   });
 
   const [crew, setCrew] = useState<Array<{ name: string; designation: string; signed: boolean }>>([
-    { name: 'Arif Khan', designation: 'Lineman I', signed: true },
-    { name: 'Sajid Ali', designation: 'Lineman II', signed: true },
+    { name: '', designation: 'Lineman I', signed: false },
   ]);
 
+  const [firstAidAvailable, setFirstAidAvailable] = useState(false);
+  const [fireExtinguisherAvailable, setFireExtinguisherAvailable] = useState(false);
+  
   const [signature, setSignature] = useState('');
 
   useEffect(() => {
@@ -59,56 +54,50 @@ export const ToolboxTalk: React.FC<FormProps> = ({ permits, onSetPermits, curren
       setStatus(existing.status);
       const data = existing.formData;
       if (data) {
+        setDate(data.date || '');
+        setSiteLocation(data.siteLocation || '');
         setSupervisorName(data.supervisorName || '');
-        setTalkDate(data.talkDate || '');
-        setLocation(data.location || '');
-        setWorkOrderId(data.workOrderId || '');
-        setHazards(data.hazards || {});
-        setMitigations(data.mitigations || {});
+        setTeamLeader(data.teamLeader || '');
+        setNatureOfJob(data.natureOfJob || '');
+        setHazardIdentification(data.hazardIdentification || '');
+        setRiskLevel(data.riskLevel || 'Low');
+        setSafetyDiscussion(data.safetyDiscussion || {});
         setCrew(data.crew || []);
+        setFirstAidAvailable(!!data.firstAidAvailable);
+        setFireExtinguisherAvailable(!!data.fireExtinguisherAvailable);
         setSignature(data.signature || '');
       }
     } else {
       setPermitId(`KE-TBT-${Math.floor(100000 + Math.random() * 900000)}`);
       setStatus('draft');
+      setDate(new Date().toISOString().split('T')[0]);
+      setSiteLocation('');
       setSupervisorName(currentUser?.name || '');
-      setTalkDate(new Date().toISOString().split('T')[0]);
-      setLocation('Feeder 11kV - Clifton block 4');
-      setWorkOrderId('');
-      setHazards({
-        shock: false,
-        heights: false,
-        overhead: false,
-        trips: false,
-        machinery: false,
-        cavein: false,
-        heat: false,
-      });
-      setMitigations({
+      setTeamLeader('');
+      setNatureOfJob('');
+      setHazardIdentification('');
+      setRiskLevel('Low');
+      setSafetyDiscussion({
+        electrical: false,
+        excavation: false,
+        traffic: false,
         ppe: false,
-        testdead: false,
-        barriers: false,
-        earth: false,
-        watcher: false,
       });
       setCrew([
-        { name: 'Arif Khan', designation: 'Lineman I', signed: true },
-        { name: 'Sajid Ali', designation: 'Lineman II', signed: true },
+        { name: '', designation: 'Lineman I', signed: false },
       ]);
+      setFirstAidAvailable(false);
+      setFireExtinguisherAvailable(false);
       setSignature('');
     }
   }, [permits, editId, currentUser]);
 
-  const toggleHazard = (key: string) => {
-    setHazards((prev) => ({ ...prev, [key]: !prev[key] }));
-  };
-
-  const toggleMitigation = (key: string) => {
-    setMitigations((prev) => ({ ...prev, [key]: !prev[key] }));
+  const toggleDiscussion = (key: string) => {
+    setSafetyDiscussion((prev) => ({ ...prev, [key]: !prev[key] }));
   };
 
   const handleAddCrew = () => {
-    setCrew([...crew, { name: '', designation: 'Assistant Lineman', signed: false }]);
+    setCrew([...crew, { name: '', designation: 'Lineman I', signed: false }]);
   };
 
   const handleRemoveCrew = (idx: number) => {
@@ -132,13 +121,17 @@ export const ToolboxTalk: React.FC<FormProps> = ({ permits, onSetPermits, curren
       createdAt: new Date().toLocaleString(),
       submittedBy: supervisorName,
       formData: {
+        date,
+        siteLocation,
         supervisorName,
-        talkDate,
-        location,
-        workOrderId,
-        hazards,
-        mitigations,
+        teamLeader,
+        natureOfJob,
+        hazardIdentification,
+        riskLevel,
+        safetyDiscussion,
         crew,
+        firstAidAvailable,
+        fireExtinguisherAvailable,
         signature,
       },
     };
@@ -160,26 +153,23 @@ export const ToolboxTalk: React.FC<FormProps> = ({ permits, onSetPermits, curren
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!workOrderId || !location || !supervisorName) {
-      alert('Please fill out all basic information fields.');
+    if (!siteLocation || !supervisorName || !teamLeader || !natureOfJob || !hazardIdentification) {
+      alert('Please fill out all basic and work description details.');
       return;
     }
 
     if (!signature) {
-      alert('A digital signature or authorization stamp is required to submit.');
+      alert('Supervisor signature is required under Emergency Preparedness/Closure to submit.');
       return;
     }
 
     const hasCrewUnsigned = crew.some((c) => !c.signed || !c.name.trim());
     if (hasCrewUnsigned) {
-      alert('Ensure all crew members are listed by name and have checked the Sign-off indicator.');
+      alert('Ensure all crew members are listed by name and have checked the Sign Off indicator.');
       return;
     }
 
-    const anyHazardChecked = Object.values(hazards).some((val) => val === true);
-    const anyMitigationChecked = Object.values(mitigations).some((val) => val === true);
-    
-    const finalStatus = (anyHazardChecked && !anyMitigationChecked) ? 'pending' : 'approved';
+    const finalStatus = (firstAidAvailable && fireExtinguisherAvailable) ? 'approved' : 'pending';
 
     const newPermit: Permit = {
       id: permitId,
@@ -188,16 +178,20 @@ export const ToolboxTalk: React.FC<FormProps> = ({ permits, onSetPermits, curren
       status: finalStatus,
       createdAt: new Date().toLocaleString(),
       submittedBy: supervisorName,
-      approvedBy: finalStatus === 'approved' ? 'TBT Supervisor Verification' : undefined,
+      approvedBy: finalStatus === 'approved' ? 'TBT Supervisor Self-Verification' : undefined,
       approvedAt: finalStatus === 'approved' ? new Date().toLocaleString() : undefined,
       formData: {
+        date,
+        siteLocation,
         supervisorName,
-        talkDate,
-        location,
-        workOrderId,
-        hazards,
-        mitigations,
+        teamLeader,
+        natureOfJob,
+        hazardIdentification,
+        riskLevel,
+        safetyDiscussion,
         crew,
+        firstAidAvailable,
+        fireExtinguisherAvailable,
         signature,
       },
     };
@@ -214,7 +208,11 @@ export const ToolboxTalk: React.FC<FormProps> = ({ permits, onSetPermits, curren
     onSetPermits(updated);
     localStorage.setItem('ke_ptw_permits', JSON.stringify(updated));
     setStatus(finalStatus);
-    alert('Toolbox Talk documented and approved!');
+    alert(
+      finalStatus === 'approved'
+        ? 'Toolbox Talk documented and approved!'
+        : 'TBT submitted with preparedness concerns. Awaiting safety supervisor clearance.'
+    );
     navigate('/');
   };
 
@@ -224,7 +222,7 @@ export const ToolboxTalk: React.FC<FormProps> = ({ permits, onSetPermits, curren
     const updatedPermit: Permit = {
       ...existing,
       status: 'approved',
-      approvedBy: `${currentUser?.name || 'Admin'} (${currentUser?.role || 'Safety Officer'})`,
+      approvedBy: `${currentUser?.name || 'Safety Officer'} (${currentUser?.role || 'Safety Officer'})`,
       approvedAt: new Date().toLocaleString(),
     };
     const index = permits.findIndex((p) => p.id === permitId);
@@ -260,158 +258,185 @@ export const ToolboxTalk: React.FC<FormProps> = ({ permits, onSetPermits, curren
     navigate('/admin');
   };
 
-  const isDisabled = status === 'approved' || status === 'rejected' || (currentUser?.role === 'Principal Safety Officer' && status === 'pending');
+  const isDisabled = status === 'approved' || status === 'rejected' || (currentUser?.label === 'admin' && status === 'pending');
 
   return (
     <FormWrapper
-      title="Site Toolbox Talk (TBT) Briefing"
+      title="4. SITE TBT (TOOLBOX TALK) FORM"
       code={formCode}
       permitId={permitId}
       status={status}
       onSaveDraft={handleSaveDraft}
       onSubmit={handleSubmit}
-      isAdmin={currentUser?.role === 'Principal Safety Officer'}
+      isAdmin={currentUser?.label === 'admin'}
       onApprove={handleApprove}
       onReject={handleReject}
     >
-      {/* SECTION 1: METADATA */}
+      {/* SECTION 1: BASIC DETAILS */}
       <div className="space-y-4">
         <h3 className="text-xs font-bold text-brand-navy tracking-wider uppercase border-b border-gray-150 pb-2">
-          I. Site & Talk Parameters
+          BASIC DETAILS
         </h3>
         
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
           <div>
-            <label className="text-xs font-bold text-gray-550 block mb-1">SUPERVISOR / LEAD CONDUCTING TBT</label>
-            <input
-              type="text"
-              value={supervisorName}
-              onChange={(e) => setSupervisorName(e.target.value)}
-              className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-brand-orange"
-              disabled={isDisabled}
-            />
+            <label className="text-xs font-bold text-gray-550 block mb-1">TBT ID</label>
+            <div className="w-full bg-gray-50 border border-gray-300 rounded-lg px-3 py-2 text-sm font-semibold text-gray-700 h-[38px] flex items-center">
+              {permitId}
+            </div>
           </div>
 
           <div>
-            <label className="text-xs font-bold text-gray-550 block mb-1">DATE OF BRIEFING</label>
+            <label className="text-xs font-bold text-gray-550 block mb-1">DATE</label>
             <input
               type="date"
-              value={talkDate}
-              onChange={(e) => setTalkDate(e.target.value)}
-              className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-brand-orange"
+              required
+              value={date}
+              onChange={(e) => setDate(e.target.value)}
+              className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-brand-orange text-gray-700 font-medium disabled:bg-gray-50"
               disabled={isDisabled}
             />
           </div>
 
           <div>
-            <label className="text-xs font-bold text-gray-550 block mb-1">FEEDER NAME / LOCATION</label>
+            <label className="text-xs font-bold text-gray-550 block mb-1">SITE LOCATION</label>
             <input
               type="text"
-              value={location}
-              onChange={(e) => setLocation(e.target.value)}
-              className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-brand-orange"
+              required
+              value={siteLocation}
+              onChange={(e) => setSiteLocation(e.target.value)}
+              placeholder="e.g. Substation C, Trench 4"
+              className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-brand-orange text-gray-700 font-medium disabled:bg-gray-50"
               disabled={isDisabled}
             />
           </div>
 
           <div>
-            <label className="text-xs font-bold text-gray-550 block mb-1">WORK ORDER ID</label>
+            <label className="text-xs font-bold text-gray-550 block mb-1">SUPERVISOR NAME</label>
             <input
               type="text"
-              value={workOrderId}
-              onChange={(e) => setWorkOrderId(e.target.value)}
-              placeholder="e.g. WO-92840-A"
-              className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-brand-orange"
+              required
+              value={supervisorName}
+              onChange={(e) => setSupervisorName(e.target.value)}
+              className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-brand-orange text-gray-700 font-medium disabled:bg-gray-50"
+              disabled={isDisabled}
+            />
+          </div>
+
+          <div>
+            <label className="text-xs font-bold text-gray-550 block mb-1">TEAM LEADER</label>
+            <input
+              type="text"
+              required
+              value={teamLeader}
+              onChange={(e) => setTeamLeader(e.target.value)}
+              placeholder="e.g. Arif Khan"
+              className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-brand-orange text-gray-700 font-medium disabled:bg-gray-50"
               disabled={isDisabled}
             />
           </div>
         </div>
       </div>
 
-      {/* SECTION 2: HAZARD RECOGNITION */}
+      <hr className="border-t-2 border-brand-primary/20 my-6" />
+
+      {/* SECTION 2: WORK DESCRIPTION */}
       <div className="space-y-4">
         <h3 className="text-xs font-bold text-brand-navy tracking-wider uppercase border-b border-gray-150 pb-2">
-          II. Job Hazard Identification (JHA)
+          WORK DESCRIPTION
+        </h3>
+        
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+          <div>
+            <label className="text-xs font-bold text-gray-550 block mb-1">NATURE OF JOB</label>
+            <input
+              type="text"
+              required
+              value={natureOfJob}
+              onChange={(e) => setNatureOfJob(e.target.value)}
+              placeholder="e.g. Overhead cable restringing"
+              className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-brand-orange text-gray-700 font-medium disabled:bg-gray-50"
+              disabled={isDisabled}
+            />
+          </div>
+
+          <div>
+            <label className="text-xs font-bold text-gray-555 block mb-1">HAZARD IDENTIFICATION</label>
+            <input
+              type="text"
+              required
+              value={hazardIdentification}
+              onChange={(e) => setHazardIdentification(e.target.value)}
+              placeholder="e.g. High voltage lines, traffic congestion"
+              className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-brand-orange text-gray-700 font-medium disabled:bg-gray-50"
+              disabled={isDisabled}
+            />
+          </div>
+
+          <div>
+            <label className="text-xs font-bold text-gray-550 block mb-1">RISK LEVEL</label>
+            <select
+              value={riskLevel}
+              onChange={(e) => setRiskLevel(e.target.value)}
+              className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-brand-orange text-gray-700 font-medium disabled:bg-gray-50 h-[38px]"
+              disabled={isDisabled}
+            >
+              <option>Low</option>
+              <option>Medium</option>
+              <option>High</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <hr className="border-t-2 border-brand-primary/20 my-6" />
+
+      {/* SECTION 3: SAFETY DISCUSSION */}
+      <div className="space-y-4">
+        <h3 className="text-xs font-bold text-brand-navy tracking-wider uppercase border-b border-gray-150 pb-2">
+          SAFETY DISCUSSION
         </h3>
 
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
           {[
-            { key: 'shock', label: 'Electrical Shock / Flash' },
-            { key: 'heights', label: 'Fall From Heights (>1.8m)' },
-            { key: 'overhead', label: 'Overhead Lines Contact' },
-            { key: 'trips', label: 'Slips / Trips / Falls' },
-            { key: 'machinery', label: 'Heavy Crane Operation' },
-            { key: 'cavein', label: 'Excavation Trench Cave-in' },
-            { key: 'heat', label: 'Heat Stroke / Open Flames' },
+            { key: 'electrical', label: 'Electrical Hazard Discussed', tooltip: 'Live power line isolations, grounding, and warning tags.' },
+            { key: 'excavation', label: 'Excavation Hazard Discussed', tooltip: 'Trench shoring, structural checks, underground cable bypass.' },
+            { key: 'traffic', label: 'Traffic Hazard Discussed', tooltip: 'Safety cones, hi-vis jackets, traffic watchers.' },
+            { key: 'ppe', label: 'PPE Requirements Explained', tooltip: 'Helmet, safety shoes, gloves insulation checks.' },
           ].map((item) => (
             <button
               key={item.key}
               type="button"
-              onClick={() => toggleHazard(item.key)}
+              onClick={() => toggleDiscussion(item.key)}
               disabled={isDisabled}
-              className={`p-3 border rounded-xl text-left text-xs font-bold transition-all cursor-pointer ${
-                hazards[item.key]
-                  ? 'bg-red-50 border-red-500 text-red-800 shadow-sm'
+              className={`p-3.5 border rounded-xl text-left text-xs font-bold transition-all cursor-pointer flex items-center justify-between ${
+                safetyDiscussion[item.key]
+                  ? 'bg-emerald-50 border-emerald-500 text-emerald-800 shadow-sm'
                   : 'bg-white border-gray-250 text-gray-700 hover:border-gray-350'
               }`}
             >
-              <input
-                type="checkbox"
-                checked={!!hazards[item.key]}
-                readOnly
-                className="mr-2 accent-red-650"
-              />
-              {item.label}
+              <span className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  checked={!!safetyDiscussion[item.key]}
+                  readOnly
+                  className="accent-emerald-605"
+                />
+                {item.label}
+              </span>
+              <Tooltip content={item.tooltip} />
             </button>
           ))}
         </div>
       </div>
 
-      {/* SECTION 3: MITIGATION */}
-      <div className="space-y-4">
-        <h3 className="text-xs font-bold text-brand-navy tracking-wider uppercase border-b border-gray-150 pb-2">
-          III. Site Safety Controls & Mitigation
-        </h3>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {[
-            { key: 'ppe', label: 'Compulsory PPE worn by all crew', tooltip: 'Helmet, safety shoes, high-visibility vest' },
-            { key: 'testdead', label: 'Verify absence of voltage (Test Dead)', tooltip: 'Use rated voltmeter/tester at site before beginning work.' },
-            { key: 'barriers', label: 'Barricades & safety cones deployed', tooltip: 'Isolate area from traffic and pedestrians.' },
-            { key: 'earth', label: 'Portable Grounding applied to cables', tooltip: 'Discharge capacitive electrical storage to ground.' },
-            { key: 'watcher', label: 'Designate Safety Watcher (Standby Person)', tooltip: 'This person must monitor crew and never leave the site.' },
-          ].map((item) => (
-            <div 
-              key={item.key} 
-              className="bg-white border border-gray-250 p-4.5 rounded-xl shadow-xs flex justify-between items-center hover:border-gray-350 transition-colors"
-            >
-              <div className="flex items-center gap-2">
-                <span className="text-sm font-semibold text-brand-navy">{item.label}</span>
-                <Tooltip content={item.tooltip} />
-              </div>
-
-              <button
-                type="button"
-                onClick={() => toggleMitigation(item.key)}
-                disabled={isDisabled}
-                className={`px-4 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                  mitigations[item.key]
-                    ? 'bg-emerald-600 border border-emerald-700 text-white shadow-sm'
-                    : 'bg-gray-105 border border-gray-300 text-gray-655 hover:bg-gray-200'
-                }`}
-              >
-                {mitigations[item.key] ? 'Applied' : 'Pending'}
-              </button>
-            </div>
-          ))}
-        </div>
-      </div>
+      <hr className="border-t-2 border-brand-primary/20 my-6" />
 
       {/* SECTION 4: ATTENDANCE */}
       <div className="space-y-4">
         <div className="flex justify-between items-center border-b border-gray-150 pb-2">
           <h3 className="text-xs font-bold text-brand-navy tracking-wider uppercase">
-            IV. Crew Attendance & Sign-off Roster
+            ATTENDANCE
           </h3>
           {!isDisabled && (
             <button
@@ -428,9 +453,9 @@ export const ToolboxTalk: React.FC<FormProps> = ({ permits, onSetPermits, curren
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="bg-gray-50 text-[10px] font-bold text-gray-500 uppercase border-b border-gray-200">
-                <th className="px-4 py-2.5">Crew Member Name</th>
+                <th className="px-4 py-2.5">Team Member Names</th>
                 <th className="px-4 py-2.5">Role / Designation</th>
-                <th className="px-4 py-2.5">Acknowledged Safety (Sign)</th>
+                <th className="px-4 py-2.5">Signatures</th>
                 {!isDisabled && (
                   <th className="px-4 py-2.5 text-right">Action</th>
                 )}
@@ -442,6 +467,7 @@ export const ToolboxTalk: React.FC<FormProps> = ({ permits, onSetPermits, curren
                   <td className="px-4 py-2">
                     <input
                       type="text"
+                      required
                       value={member.name}
                       onChange={(e) => handleCrewChange(idx, 'name', e.target.value)}
                       placeholder="e.g. Arif Khan"
@@ -453,14 +479,13 @@ export const ToolboxTalk: React.FC<FormProps> = ({ permits, onSetPermits, curren
                     <select
                       value={member.designation}
                       onChange={(e) => handleCrewChange(idx, 'designation', e.target.value)}
-                      className="bg-transparent border-0 outline-none w-full"
+                      className="bg-transparent border-0 outline-none w-full font-medium text-gray-700"
                       disabled={isDisabled}
                     >
                       <option>Lineman I</option>
                       <option>Lineman II</option>
                       <option>Assistant Lineman</option>
                       <option>Safety Watcher</option>
-                      <option>Cable Jointer</option>
                     </select>
                   </td>
                   <td className="px-4 py-2">
@@ -496,20 +521,71 @@ export const ToolboxTalk: React.FC<FormProps> = ({ permits, onSetPermits, curren
         </div>
       </div>
 
-      {/* SECTION 5: SIGN-OFF */}
-      <div className="space-y-4">
-        <h3 className="text-xs font-bold text-brand-navy tracking-wider uppercase border-b border-gray-150 pb-2">
-          V. TBT Supervisor Stamp
-        </h3>
+      <hr className="border-t-2 border-brand-primary/20 my-6" />
 
-        <div className="max-w-md">
-          <SignaturePad
-            label="SUPERVISOR SIGN-OFF"
-            role="Site Safety Supervisor"
-            onSign={setSignature}
-            savedSignature={signature}
+      {/* SECTION 5: EMERGENCY PREPAREDNESS & SUPERVISOR SIGN-OFF */}
+      <div className="space-y-6">
+        <h3 className="text-xs font-bold text-brand-navy tracking-wider uppercase border-b border-gray-150 pb-2">
+          EMERGENCY PREPAREDNESS
+        </h3>
+        
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <button
+            type="button"
+            onClick={() => setFirstAidAvailable(!firstAidAvailable)}
             disabled={isDisabled}
-          />
+            className={`p-3.5 border rounded-xl text-left text-xs font-bold transition-all cursor-pointer flex items-center justify-between ${
+              firstAidAvailable
+                ? 'bg-emerald-50 border-emerald-500 text-emerald-800 shadow-sm'
+                : 'bg-white border-gray-250 text-gray-700 hover:border-gray-350'
+            }`}
+          >
+            <span className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                checked={firstAidAvailable}
+                readOnly
+                className="accent-emerald-600"
+              />
+              First Aid Available
+            </span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setFireExtinguisherAvailable(!fireExtinguisherAvailable)}
+            disabled={isDisabled}
+            className={`p-3.5 border rounded-xl text-left text-xs font-bold transition-all cursor-pointer flex items-center justify-between ${
+              fireExtinguisherAvailable
+                ? 'bg-emerald-50 border-emerald-500 text-emerald-800 shadow-sm'
+                : 'bg-white border-gray-250 text-gray-700 hover:border-gray-350'
+            }`}
+          >
+            <span className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                checked={fireExtinguisherAvailable}
+                readOnly
+                className="accent-emerald-600"
+              />
+              Fire Extinguisher Available
+            </span>
+          </button>
+        </div>
+
+        <hr className="border-t border-gray-200 my-4" />
+
+        <div className="space-y-4">
+          <span className="text-xs font-bold text-brand-navy block uppercase tracking-wider">SUPERVISOR SIGN-OFF</span>
+          <div className="max-w-md">
+            <SignaturePad
+              label="SUPERVISOR SIGNATURE"
+              role="Conducting Supervisor"
+              onSign={setSignature}
+              savedSignature={signature}
+              disabled={isDisabled}
+            />
+          </div>
         </div>
       </div>
     </FormWrapper>
