@@ -15,7 +15,9 @@ import { Excavation } from './pages/forms/Excavation';
 import { ConfinedSpace } from './pages/forms/ConfinedSpace';
 import { HeatShrink } from './pages/forms/HeatShrink';
 import { Auth } from './pages/Auth';
+import { ToastContainer } from './components/ToastContainer';
 import type { Permit, Notification, UserProfile } from './types/ptw';
+
 
 // Mock baseline data for fresh load fallback
 const initialMockPermits: Permit[] = [
@@ -296,7 +298,12 @@ function App() {
 
   // If not authenticated, render Login/Signup Screen
   if (!currentUser || !activeProfile) {
-    return <Auth onLoginSuccess={handleLoginSuccess} />;
+    return (
+      <>
+        <ToastContainer />
+        <Auth onLoginSuccess={handleLoginSuccess} />
+      </>
+    );
   }
 
   const isAdminAccount = activeProfile?.label === 'admin';
@@ -305,7 +312,9 @@ function App() {
   return (
     <BrowserRouter>
       <div className="min-h-screen flex flex-col bg-gray-100 font-sans antialiased text-gray-800">
+        <ToastContainer />
         <Header
+
           notifications={notifications}
           onMarkAllAsRead={handleMarkAllRead}
           currentUser={activeProfile}

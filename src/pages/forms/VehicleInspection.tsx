@@ -248,7 +248,7 @@ export const VehicleInspection: React.FC<FormProps> = ({ permits, onSetPermits, 
       status={status}
       onSaveDraft={handleSaveDraft}
       onSubmit={handleSubmit}
-      isAdmin={currentUser?.label === 'admin'}
+      isAdmin={currentUser?.role === 'Principal Safety Officer'}
       onApprove={handleApprove}
       onReject={handleReject}
     >

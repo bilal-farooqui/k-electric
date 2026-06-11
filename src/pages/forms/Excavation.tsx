@@ -22,11 +22,14 @@ export const Excavation: React.FC<FormProps> = ({ permits, onSetPermits, current
 
   // Form State
   const [trenchLocation, setTrenchLocation] = useState('Lane 7, Phase 6 DHA');
+  const [area, setArea] = useState('');
   const [purpose, setPurpose] = useState('HV Cable Jointing & Inspection');
   const [targetDepth, setTargetDepth] = useState('1.5');
   const [contractorName, setContractorName] = useState('');
+  const [supervisorName, setSupervisorName] = useState('');
+  const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
   const [plannedDuration, setPlannedDuration] = useState('3 days');
-  
+
   const [checklist, setChecklist] = useState<Record<string, boolean>>({
     trialPitDug: false,
     utilitiesLocated: false,
@@ -47,9 +50,12 @@ export const Excavation: React.FC<FormProps> = ({ permits, onSetPermits, current
       const data = existing.formData;
       if (data) {
         setTrenchLocation(data.trenchLocation || '');
+        setArea(data.area || '');
         setPurpose(data.purpose || '');
         setTargetDepth(data.targetDepth || '1.5');
         setContractorName(data.contractorName || '');
+        setSupervisorName(data.supervisorName || '');
+        setDate(data.date || new Date().toISOString().split('T')[0]);
         setPlannedDuration(data.plannedDuration || '');
         setChecklist(data.checklist || {});
         setSupervisorSig(data.supervisorSig || '');
@@ -59,9 +65,12 @@ export const Excavation: React.FC<FormProps> = ({ permits, onSetPermits, current
       setPermitId(`KE-EX-${Math.floor(100000 + Math.random() * 900000)}`);
       setStatus('draft');
       setTrenchLocation('Lane 7, Phase 6 DHA');
+      setArea('');
       setPurpose('HV Cable Jointing & Inspection');
       setTargetDepth('1.5');
       setContractorName(currentUser?.name || '');
+      setSupervisorName('');
+      setDate(new Date().toISOString().split('T')[0]);
       setPlannedDuration('3 days');
       setChecklist({
         trialPitDug: false,
@@ -80,37 +89,38 @@ export const Excavation: React.FC<FormProps> = ({ permits, onSetPermits, current
     setChecklist((prev) => ({ ...prev, [item]: !prev[item] }));
   };
 
-  const handleSaveDraft = () => {
-    const newPermit: Permit = {
-      id: permitId,
-      type: 'excavation',
-      title: 'Excavation PTW',
-      status: 'draft',
-      createdAt: new Date().toLocaleString(),
-      submittedBy: contractorName,
-      formData: {
-        trenchLocation,
-        purpose,
-        targetDepth,
-        contractorName,
-        plannedDuration,
-        checklist,
-        supervisorSig,
-        safetyOfficerSig,
-      },
-    };
+  const buildPermitPayload = (overrideStatus: 'draft' | 'pending' | 'approved' | 'rejected') => ({
+    id: permitId,
+    type: 'excavation' as const,
+    title: 'Excavation PTW',
+    status: overrideStatus,
+    createdAt: new Date().toLocaleString(),
+    submittedBy: contractorName,
+    formData: {
+      trenchLocation,
+      area,
+      purpose,
+      targetDepth,
+      contractorName,
+      supervisorName,
+      date,
+      plannedDuration,
+      checklist,
+      supervisorSig,
+      safetyOfficerSig,
+    },
+  });
 
+  const saveToStore = (permit: Permit) => {
     const index = permits.findIndex((p) => p.id === permitId);
-    let updated: Permit[];
-    if (index > -1) {
-      updated = [...permits];
-      updated[index] = newPermit;
-    } else {
-      updated = [newPermit, ...permits];
-    }
-
+    const updated = index > -1 ? permits.map((p, i) => (i === index ? permit : p)) : [permit, ...permits];
     onSetPermits(updated);
     localStorage.setItem('ke_ptw_permits', JSON.stringify(updated));
+    return updated;
+  };
+
+  const handleSaveDraft = () => {
+    saveToStore(buildPermitPayload('draft'));
     alert('Draft saved successfully!');
   };
 
@@ -131,37 +141,12 @@ export const Excavation: React.FC<FormProps> = ({ permits, onSetPermits, current
     const finalStatus = allChecked ? 'approved' : 'pending';
 
     const newPermit: Permit = {
-      id: permitId,
-      type: 'excavation',
-      title: 'Excavation PTW',
-      status: finalStatus,
-      createdAt: new Date().toLocaleString(),
-      submittedBy: contractorName,
+      ...buildPermitPayload(finalStatus),
       approvedBy: finalStatus === 'approved' ? 'Chief Safety Officer' : undefined,
       approvedAt: finalStatus === 'approved' ? new Date().toLocaleString() : undefined,
-      formData: {
-        trenchLocation,
-        purpose,
-        targetDepth,
-        contractorName,
-        plannedDuration,
-        checklist,
-        supervisorSig,
-        safetyOfficerSig,
-      },
     };
 
-    const index = permits.findIndex((p) => p.id === permitId);
-    let updated: Permit[];
-    if (index > -1) {
-      updated = [...permits];
-      updated[index] = newPermit;
-    } else {
-      updated = [newPermit, ...permits];
-    }
-
-    onSetPermits(updated);
-    localStorage.setItem('ke_ptw_permits', JSON.stringify(updated));
+    saveToStore(newPermit);
     setStatus(finalStatus);
     alert(
       allChecked
@@ -180,14 +165,7 @@ export const Excavation: React.FC<FormProps> = ({ permits, onSetPermits, current
       approvedBy: `${currentUser?.name || 'Admin'} (${currentUser?.role || 'Safety Officer'})`,
       approvedAt: new Date().toLocaleString(),
     };
-    const index = permits.findIndex((p) => p.id === permitId);
-    let updated = [...permits];
-    if (index > -1) {
-      updated[index] = updatedPermit;
-    } else {
-      updated = [updatedPermit, ...permits];
-    }
-    onSetPermits(updated);
+    saveToStore(updatedPermit);
     setStatus('approved');
     alert('Permit approved successfully!');
     navigate('/admin');
@@ -196,18 +174,8 @@ export const Excavation: React.FC<FormProps> = ({ permits, onSetPermits, current
   const handleReject = () => {
     const existing = permits.find((p) => p.id === permitId);
     if (!existing) return;
-    const updatedPermit: Permit = {
-      ...existing,
-      status: 'rejected',
-    };
-    const index = permits.findIndex((p) => p.id === permitId);
-    let updated = [...permits];
-    if (index > -1) {
-      updated[index] = updatedPermit;
-    } else {
-      updated = [updatedPermit, ...permits];
-    }
-    onSetPermits(updated);
+    const updatedPermit: Permit = { ...existing, status: 'rejected' };
+    saveToStore(updatedPermit);
     setStatus('rejected');
     alert('Permit rejected.');
     navigate('/admin');
@@ -224,6 +192,27 @@ export const Excavation: React.FC<FormProps> = ({ permits, onSetPermits, current
 
   const isDisabled = status === 'approved' || status === 'rejected' || (currentUser?.role === 'Principal Safety Officer' && status === 'pending');
 
+  // Inline style for underline blanks in the letter preview
+  const blank = (val: string, width = '160px') => (
+    <span
+      style={{
+        display: 'inline-block',
+        minWidth: width,
+        borderBottom: '1px solid #374151',
+        marginLeft: '4px',
+        marginRight: '4px',
+        verticalAlign: 'bottom',
+        color: val ? '#1e3a5f' : '#9ca3af',
+        fontWeight: val ? 600 : 400,
+        fontSize: '0.875rem',
+        lineHeight: '1.6',
+        paddingLeft: '2px',
+      }}
+    >
+      {val || ''}
+    </span>
+  );
+
   return (
     <FormWrapper
       title="Trench Excavation Permit (Civil Works)"
@@ -236,12 +225,60 @@ export const Excavation: React.FC<FormProps> = ({ permits, onSetPermits, current
       onApprove={handleApprove}
       onReject={handleReject}
     >
+      {/* LETTER PREVIEW */}
+      <div className="space-y-4">
+        <h3 className="text-xs font-bold text-brand-navy tracking-wider uppercase border-b border-gray-150 pb-2">
+          PTW Request Letter
+        </h3>
+
+        <div
+          style={{
+            background: '#fff',
+            border: '1px solid #e5e7eb',
+            borderRadius: '12px',
+            padding: '28px 32px',
+            fontFamily: 'Georgia, serif',
+            fontSize: '0.875rem',
+            lineHeight: '2',
+            color: '#111827',
+          }}
+        >
+          <p style={{ marginBottom: '4px' }}>
+            <strong>Subject:</strong> Excavation PTW Request
+          </p>
+          <p style={{ marginBottom: '12px' }}>Respected Sir,</p>
+          <p style={{ marginBottom: '8px' }}>
+            It is requested to issue an Excavation Permit to Work (PTW) for excavation activity at
+            {blank(trenchLocation, '200px')} located in {blank(area, '160px')} area. The excavation is
+            required for {blank(purpose, '220px')} with an estimated depth of {blank(targetDepth ? `${targetDepth} meters` : '', '120px')} through
+            machine/manual excavation.
+          </p>
+          <p style={{ marginBottom: '8px' }}>
+            All required safety precautions, including barricading, warning signs, underground utility
+            identification, and PPE arrangements, have been ensured before commencement of work.
+            Necessary excavation equipment and manpower are available at site.
+          </p>
+          <p style={{ marginBottom: '16px' }}>
+            Kindly approve the Excavation PTW and authorize the work to proceed safely.
+          </p>
+          <p style={{ marginBottom: '4px' }}>
+            Requested By: {blank(contractorName, '200px')}
+          </p>
+          <p style={{ marginBottom: '4px' }}>
+            Supervisor Name: {blank(supervisorName, '180px')}
+          </p>
+          <p style={{ marginBottom: '4px' }}>
+            Date: {blank(date, '180px')}
+          </p>
+        </div>
+      </div>
+
       {/* SECTION 1: DETAILS */}
       <div className="space-y-4">
         <h3 className="text-xs font-bold text-brand-navy tracking-wider uppercase border-b border-gray-150 pb-2">
           I. Excavation Operations Parameters
         </h3>
-        
+
         <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
           <div>
             <label className="text-xs font-bold text-gray-550 block mb-1">CONTRACTOR / CREW NAME</label>
@@ -255,11 +292,45 @@ export const Excavation: React.FC<FormProps> = ({ permits, onSetPermits, current
           </div>
 
           <div>
+            <label className="text-xs font-bold text-gray-550 block mb-1">SUPERVISOR NAME</label>
+            <input
+              type="text"
+              value={supervisorName}
+              onChange={(e) => setSupervisorName(e.target.value)}
+              className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-brand-orange"
+              disabled={isDisabled}
+            />
+          </div>
+
+          <div>
+            <label className="text-xs font-bold text-gray-550 block mb-1">DATE</label>
+            <input
+              type="date"
+              value={date}
+              onChange={(e) => setDate(e.target.value)}
+              className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-brand-orange"
+              disabled={isDisabled}
+            />
+          </div>
+
+          <div>
             <label className="text-xs font-bold text-gray-550 block mb-1">TRENCH SITE LOCATION</label>
             <input
               type="text"
               value={trenchLocation}
               onChange={(e) => setTrenchLocation(e.target.value)}
+              className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-brand-orange"
+              disabled={isDisabled}
+            />
+          </div>
+
+          <div>
+            <label className="text-xs font-bold text-gray-550 block mb-1">AREA</label>
+            <input
+              type="text"
+              value={area}
+              onChange={(e) => setArea(e.target.value)}
+              placeholder="e.g. DHA Phase 6"
               className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-brand-orange"
               disabled={isDisabled}
             />
@@ -310,8 +381,8 @@ export const Excavation: React.FC<FormProps> = ({ permits, onSetPermits, current
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {items.map((item) => (
-            <div 
-              key={item.key} 
+            <div
+              key={item.key}
               className="bg-white border border-gray-250 p-4.5 rounded-xl shadow-xs flex justify-between items-center hover:border-gray-350 transition-colors"
             >
               <div className="flex items-center gap-2">

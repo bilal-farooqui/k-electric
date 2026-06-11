@@ -21,27 +21,36 @@ export const ConfinedSpace: React.FC<FormProps> = ({ permits, onSetPermits, curr
   const [permitId, setPermitId] = useState('');
   const [status, setStatus] = useState<'draft' | 'pending' | 'approved' | 'rejected'>('draft');
 
-  // Form State
-  const [manholeId, setManholeId] = useState('MH-CLIF-8392');
-  const [entrySupervisor, setEntrySupervisor] = useState('');
-  const [standbyWatcher, setStandbyWatcher] = useState('Dilawar Shah');
-  const [entryDate, setEntryDate] = useState(new Date().toISOString().split('T')[0]);
-  
-  // Gas test measurements
-  const [oxygenLevel, setOxygenLevel] = useState('20.9'); // Norm: 19.5% - 23.5%
-  const [h2sLevel, setH2sLevel] = useState('0'); // Norm: < 10 ppm
-  const [coLevel, setCoLevel] = useState('0'); // Norm: < 35 ppm
-  const [lelLevel, setLelLevel] = useState('0'); // Norm: < 10%
-  const [gasTesterName, setGasTesterName] = useState('Tariq Mahmood');
+  // Entry Information
+  const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
+  const [location, setLocation] = useState('');
+  const [purposeOfEntry, setPurposeOfEntry] = useState('');
 
-  const [checklist, setChecklist] = useState<Record<string, boolean>>({
-    ventilationActive: false,
-    harnessWorn: false,
-    tripodSetup: false,
-    watcherTrained: false,
-    gasMonitorContinuous: false,
+  // Atmospheric Testing
+  const [oxygenLevel, setOxygenLevel] = useState('20.9');
+  const [toxicGasLevel, setToxicGasLevel] = useState('0');
+  const [flammableGasLevel, setFlammableGasLevel] = useState('0');
+
+  // Safety Requirements checklist
+  const [safetyChecklist, setSafetyChecklist] = useState<Record<string, boolean>>({
+    ventilationAvailable: false,
+    gasDetectorAvailable: false,
+    rescueEquipmentAvailable: false,
+    harnessUsed: false,
   });
 
+  // Personnel
+  const [authorizedEntrants, setAuthorizedEntrants] = useState('');
+  const [entryTime, setEntryTime] = useState('');
+  const [exitTime, setExitTime] = useState('');
+
+  // Emergency Preparedness checklist
+  const [emergencyChecklist, setEmergencyChecklist] = useState<Record<string, boolean>>({
+    rescueTeamInformed: false,
+    emergencyContactAvailable: false,
+  });
+
+  // Signatures
   const [gasTesterSig, setGasTesterSig] = useState('');
   const [supervisorSig, setSupervisorSig] = useState('');
 
@@ -50,112 +59,99 @@ export const ConfinedSpace: React.FC<FormProps> = ({ permits, onSetPermits, curr
     if (existing) {
       setPermitId(existing.id);
       setStatus(existing.status);
-      const data = existing.formData;
-      if (data) {
-        setManholeId(data.manholeId || '');
-        setEntrySupervisor(data.entrySupervisor || '');
-        setStandbyWatcher(data.standbyWatcher || '');
-        setEntryDate(data.entryDate || '');
-        setOxygenLevel(data.oxygenLevel || '20.9');
-        setH2sLevel(data.h2sLevel || '0');
-        setCoLevel(data.coLevel || '0');
-        setLelLevel(data.lelLevel || '0');
-        setGasTesterName(data.gasTesterName || '');
-        setChecklist(data.checklist || {});
-        setGasTesterSig(data.gasTesterSig || '');
-        setSupervisorSig(data.supervisorSig || '');
+      const d = existing.formData;
+      if (d) {
+        setDate(d.date || new Date().toISOString().split('T')[0]);
+        setLocation(d.location || '');
+        setPurposeOfEntry(d.purposeOfEntry || '');
+        setOxygenLevel(d.oxygenLevel || '20.9');
+        setToxicGasLevel(d.toxicGasLevel || '0');
+        setFlammableGasLevel(d.flammableGasLevel || '0');
+        setSafetyChecklist(d.safetyChecklist || {});
+        setAuthorizedEntrants(d.authorizedEntrants || '');
+        setEntryTime(d.entryTime || '');
+        setExitTime(d.exitTime || '');
+        setEmergencyChecklist(d.emergencyChecklist || {});
+        setGasTesterSig(d.gasTesterSig || '');
+        setSupervisorSig(d.supervisorSig || '');
       }
     } else {
       setPermitId(`KE-CS-${Math.floor(100000 + Math.random() * 900000)}`);
       setStatus('draft');
-      setManholeId('MH-CLIF-8392');
-      setEntrySupervisor(currentUser?.name || '');
-      setStandbyWatcher('Dilawar Shah');
-      setEntryDate(new Date().toISOString().split('T')[0]);
+      setDate(new Date().toISOString().split('T')[0]);
+      setLocation('');
+      setPurposeOfEntry('');
       setOxygenLevel('20.9');
-      setH2sLevel('0');
-      setCoLevel('0');
-      setLelLevel('0');
-      setGasTesterName('Tariq Mahmood');
-      setChecklist({
-        ventilationActive: false,
-        harnessWorn: false,
-        tripodSetup: false,
-        watcherTrained: false,
-        gasMonitorContinuous: false,
-      });
+      setToxicGasLevel('0');
+      setFlammableGasLevel('0');
+      setSafetyChecklist({ ventilationAvailable: false, gasDetectorAvailable: false, rescueEquipmentAvailable: false, harnessUsed: false });
+      setAuthorizedEntrants(currentUser?.name || '');
+      setEntryTime('');
+      setExitTime('');
+      setEmergencyChecklist({ rescueTeamInformed: false, emergencyContactAvailable: false });
       setGasTesterSig('');
       setSupervisorSig('');
     }
   }, [permits, editId, currentUser]);
 
-  const toggleCheck = (item: string) => {
-    setChecklist((prev) => ({ ...prev, [item]: !prev[item] }));
+  const toggleSafety = (key: string) =>
+    setSafetyChecklist((prev) => ({ ...prev, [key]: !prev[key] }));
+
+  const toggleEmergency = (key: string) =>
+    setEmergencyChecklist((prev) => ({ ...prev, [key]: !prev[key] }));
+
+  const validateAtmosphere = () => {
+    const o2 = parseFloat(oxygenLevel);
+    const toxic = parseFloat(toxicGasLevel);
+    const flam = parseFloat(flammableGasLevel);
+    const o2Ok = o2 >= 19.5 && o2 <= 23.5;
+    const toxicOk = toxic < 10;
+    const flamOk = flam < 10;
+    return { allOk: o2Ok && toxicOk && flamOk, o2Ok, toxicOk, flamOk };
+  };
+
+  const buildFormData = () => ({
+    date,
+    location,
+    purposeOfEntry,
+    oxygenLevel,
+    toxicGasLevel,
+    flammableGasLevel,
+    safetyChecklist,
+    authorizedEntrants,
+    entryTime,
+    exitTime,
+    emergencyChecklist,
+    gasTesterSig,
+    supervisorSig,
+  });
+
+  const saveToStore = (permit: Permit) => {
+    const index = permits.findIndex((p) => p.id === permitId);
+    const updated = index > -1 ? permits.map((p, i) => (i === index ? permit : p)) : [permit, ...permits];
+    onSetPermits(updated);
+    localStorage.setItem('ke_ptw_permits', JSON.stringify(updated));
+    return updated;
   };
 
   const handleSaveDraft = () => {
-    const newPermit: Permit = {
+    saveToStore({
       id: permitId,
       type: 'confined-space',
       title: 'Confined Space PTW',
       status: 'draft',
       createdAt: new Date().toLocaleString(),
-      submittedBy: entrySupervisor,
-      formData: {
-        manholeId,
-        entrySupervisor,
-        standbyWatcher,
-        entryDate,
-        oxygenLevel,
-        h2sLevel,
-        coLevel,
-        lelLevel,
-        gasTesterName,
-        checklist,
-        gasTesterSig,
-        supervisorSig,
-      },
-    };
-
-    const index = permits.findIndex((p) => p.id === permitId);
-    let updated: Permit[];
-    if (index > -1) {
-      updated = [...permits];
-      updated[index] = newPermit;
-    } else {
-      updated = [newPermit, ...permits];
-    }
-
-    onSetPermits(updated);
-    localStorage.setItem('ke_ptw_permits', JSON.stringify(updated));
+      submittedBy: authorizedEntrants,
+      formData: buildFormData(),
+    });
     alert('Draft saved successfully!');
-  };
-
-  const validateGases = () => {
-    const o2 = parseFloat(oxygenLevel);
-    const h2s = parseFloat(h2sLevel);
-    const co = parseFloat(coLevel);
-    const lel = parseFloat(lelLevel);
-
-    const o2Ok = o2 >= 19.5 && o2 <= 23.5;
-    const h2sOk = h2s < 10;
-    const coOk = co < 35;
-    const lelOk = lel < 10;
-
-    return {
-      allOk: o2Ok && h2sOk && coOk && lelOk,
-      o2Ok,
-      h2sOk,
-      coOk,
-      lelOk,
-    };
   };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!manholeId || !entrySupervisor || !standbyWatcher) {
-      alert('Please fill out Location/Manhole ID and Supervisor/Standby Watcher names.');
+    if (!location || !purposeOfEntry || !authorizedEntrants) {
+      alert('Please fill out Location, Purpose of Entry, and Authorized Entrants.');
       return;
     }
 
@@ -164,57 +160,32 @@ export const ConfinedSpace: React.FC<FormProps> = ({ permits, onSetPermits, curr
       return;
     }
 
-    const gasReport = validateGases();
-    const allControlsChecked = Object.values(checklist).every((val) => val === true);
-    
-    if (!gasReport.allOk) {
-      alert('CRITICAL SAFETY DETECTED: Gas levels are OUTSIDE safe atmospheric limits. Under no circumstances can entry be allowed.');
+    const atmosphere = validateAtmosphere();
+    if (!atmosphere.allOk) {
+      alert('CRITICAL SAFETY ALERT: Atmospheric levels are outside safe limits. Entry is forbidden until levels normalize.');
       return;
     }
 
-    const finalStatus = allControlsChecked ? 'approved' : 'pending';
+    const allSafetyChecked = Object.values(safetyChecklist).every(Boolean);
+    const allEmergencyChecked = Object.values(emergencyChecklist).every(Boolean);
+    const finalStatus = allSafetyChecked && allEmergencyChecked ? 'approved' : 'pending';
 
-    const newPermit: Permit = {
+    saveToStore({
       id: permitId,
       type: 'confined-space',
       title: 'Confined Space PTW',
       status: finalStatus,
       createdAt: new Date().toLocaleString(),
-      submittedBy: entrySupervisor,
+      submittedBy: authorizedEntrants,
       approvedBy: finalStatus === 'approved' ? 'Lead Industrial Safety Engineer' : undefined,
       approvedAt: finalStatus === 'approved' ? new Date().toLocaleString() : undefined,
-      formData: {
-        manholeId,
-        entrySupervisor,
-        standbyWatcher,
-        entryDate,
-        oxygenLevel,
-        h2sLevel,
-        coLevel,
-        lelLevel,
-        gasTesterName,
-        checklist,
-        gasTesterSig,
-        supervisorSig,
-      },
-    };
-
-    const index = permits.findIndex((p) => p.id === permitId);
-    let updated: Permit[];
-    if (index > -1) {
-      updated = [...permits];
-      updated[index] = newPermit;
-    } else {
-      updated = [newPermit, ...permits];
-    }
-
-    onSetPermits(updated);
-    localStorage.setItem('ke_ptw_permits', JSON.stringify(updated));
+      formData: buildFormData(),
+    });
     setStatus(finalStatus);
     alert(
-      allControlsChecked
+      finalStatus === 'approved'
         ? 'Confined Space Entry Permit approved! Access is authorized.'
-        : 'Safety equipment checks missing. Permit set to Pending review.'
+        : 'Safety checks incomplete. Permit set to Pending review.'
     );
     navigate('/');
   };
@@ -222,20 +193,12 @@ export const ConfinedSpace: React.FC<FormProps> = ({ permits, onSetPermits, curr
   const handleApprove = () => {
     const existing = permits.find((p) => p.id === permitId);
     if (!existing) return;
-    const updatedPermit: Permit = {
+    saveToStore({
       ...existing,
       status: 'approved',
       approvedBy: `${currentUser?.name || 'Admin'} (${currentUser?.role || 'Safety Officer'})`,
       approvedAt: new Date().toLocaleString(),
-    };
-    const index = permits.findIndex((p) => p.id === permitId);
-    let updated = [...permits];
-    if (index > -1) {
-      updated[index] = updatedPermit;
-    } else {
-      updated = [updatedPermit, ...permits];
-    }
-    onSetPermits(updated);
+    });
     setStatus('approved');
     alert('Permit approved successfully!');
     navigate('/admin');
@@ -244,34 +207,65 @@ export const ConfinedSpace: React.FC<FormProps> = ({ permits, onSetPermits, curr
   const handleReject = () => {
     const existing = permits.find((p) => p.id === permitId);
     if (!existing) return;
-    const updatedPermit: Permit = {
-      ...existing,
-      status: 'rejected',
-    };
-    const index = permits.findIndex((p) => p.id === permitId);
-    let updated = [...permits];
-    if (index > -1) {
-      updated[index] = updatedPermit;
-    } else {
-      updated = [updatedPermit, ...permits];
-    }
-    onSetPermits(updated);
+    saveToStore({ ...existing, status: 'rejected' });
     setStatus('rejected');
     alert('Permit rejected.');
     navigate('/admin');
   };
 
-  const gasReport = validateGases();
+  const atmosphere = validateAtmosphere();
+  const isDisabled =
+    status === 'approved' ||
+    status === 'rejected' ||
+    (currentUser?.role === 'Principal Safety Officer' && status === 'pending');
 
-  const items = [
-    { key: 'ventilationActive', label: 'Forced Mechanical Ventilation Active', tooltip: 'Forced air blower active for at least 15 minutes prior to entry.' },
-    { key: 'harnessWorn', label: 'Safety Harness & Lifeline Worn', tooltip: 'Entry team must wear a full-body harness connected to a lifeline cable.' },
-    { key: 'tripodSetup', label: 'Retrieval Tripod and Winch Placed', tooltip: 'Verify recovery tripod hoist is locked above the manhole entry point.' },
-    { key: 'watcherTrained', label: 'Standby Watchman Stationary at Entrance', tooltip: 'Watcher must remain at the opening, maintain communication, and never enter the space.' },
-    { key: 'gasMonitorContinuous', label: 'Continuous Personal Gas Detector Active', tooltip: 'Entrants must wear a multi-gas monitor configured to beep/vibrate on threshold.' },
-  ];
+  const sectionHeader = (label: string) => (
+    <div
+      style={{
+        color: '#1e3a5f',
+        fontSize: '0.7rem',
+        fontWeight: 700,
+        letterSpacing: '0.1em',
+        textTransform: 'uppercase',
+        borderBottom: '1.5px solid #1e3a5f',
+        paddingBottom: '4px',
+        marginBottom: '10px',
+      }}
+    >
+      {label}
+    </div>
+  );
 
-  const isDisabled = status === 'approved' || status === 'rejected' || (currentUser?.role === 'Principal Safety Officer' && status === 'pending');
+  const CheckToggle = ({
+    checked,
+    onToggle,
+    label,
+    tooltip,
+  }: {
+    checked: boolean;
+    onToggle: () => void;
+    label: string;
+    tooltip?: string;
+  }) => (
+    <div className="flex justify-between items-center bg-white border border-gray-250 rounded-xl px-4 py-3 shadow-xs hover:border-gray-350 transition-colors">
+      <div className="flex items-center gap-2">
+        <span className="text-sm font-semibold text-brand-navy">{label}</span>
+        {tooltip && <Tooltip content={tooltip} />}
+      </div>
+      <button
+        type="button"
+        onClick={onToggle}
+        disabled={isDisabled}
+        className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+          checked
+            ? 'bg-emerald-600 border border-emerald-700 text-white shadow-sm'
+            : 'bg-gray-105 border border-gray-300 text-gray-655 hover:bg-gray-200'
+        }`}
+      >
+        {checked ? 'Yes' : 'No'}
+      </button>
+    </div>
+  );
 
   return (
     <FormWrapper
@@ -285,52 +279,63 @@ export const ConfinedSpace: React.FC<FormProps> = ({ permits, onSetPermits, curr
       onApprove={handleApprove}
       onReject={handleReject}
     >
-      {/* SECTION 1: METADATA */}
-      <div className="space-y-4">
-        <h3 className="text-xs font-bold text-brand-navy tracking-wider uppercase border-b border-gray-150 pb-2">
-          I. Entry Control Details
-        </h3>
-        
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+      {/* DESCRIPTION BANNER */}
+      <div
+        style={{
+          background: '#f0f4f9',
+          border: '1px solid #c7d5e8',
+          borderRadius: '10px',
+          padding: '14px 18px',
+          fontSize: '0.875rem',
+          color: '#374151',
+          lineHeight: '1.6',
+        }}
+      >
+        This PTW is applicable when work is performed in confined or restricted spaces such as trenches
+        deeper than 4 ft, manholes, chambers, vaults, or underground cable pits.
+      </div>
+
+      {/* SECTION 1: ENTRY INFORMATION */}
+      <div className="space-y-3">
+        {sectionHeader('Entry Information')}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <label className="text-xs font-bold text-gray-550 block mb-1">MANHOLE / CHAMBER ID</label>
+            <label className="text-xs font-bold text-gray-550 block mb-1">PERMIT NUMBER</label>
             <input
               type="text"
-              value={manholeId}
-              onChange={(e) => setManholeId(e.target.value)}
-              className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-brand-orange"
-              disabled={isDisabled}
+              value={permitId}
+              readOnly
+              className="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-500 font-mono outline-none"
             />
           </div>
-
           <div>
-            <label className="text-xs font-bold text-gray-550 block mb-1">ENTRY SUPERVISOR</label>
-            <input
-              type="text"
-              value={entrySupervisor}
-              onChange={(e) => setEntrySupervisor(e.target.value)}
-              className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-brand-orange"
-              disabled={isDisabled}
-            />
-          </div>
-
-          <div>
-            <label className="text-xs font-bold text-gray-550 block mb-1">STANDBY WATCHER (SAFETY LOOKOUT)</label>
-            <input
-              type="text"
-              value={standbyWatcher}
-              onChange={(e) => setStandbyWatcher(e.target.value)}
-              className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-brand-orange"
-              disabled={isDisabled}
-            />
-          </div>
-
-          <div>
-            <label className="text-xs font-bold text-gray-550 block mb-1">ENTRY DATE</label>
+            <label className="text-xs font-bold text-gray-550 block mb-1">DATE</label>
             <input
               type="date"
-              value={entryDate}
-              onChange={(e) => setEntryDate(e.target.value)}
+              value={date}
+              onChange={(e) => setDate(e.target.value)}
+              className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-brand-orange"
+              disabled={isDisabled}
+            />
+          </div>
+          <div>
+            <label className="text-xs font-bold text-gray-550 block mb-1">LOCATION</label>
+            <input
+              type="text"
+              value={location}
+              onChange={(e) => setLocation(e.target.value)}
+              placeholder="e.g. MH-CLIF-8392, Phase 6 DHA"
+              className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-brand-orange"
+              disabled={isDisabled}
+            />
+          </div>
+          <div>
+            <label className="text-xs font-bold text-gray-550 block mb-1">PURPOSE OF ENTRY</label>
+            <input
+              type="text"
+              value={purposeOfEntry}
+              onChange={(e) => setPurposeOfEntry(e.target.value)}
+              placeholder="e.g. Cable inspection and jointing"
               className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-brand-orange"
               disabled={isDisabled}
             />
@@ -338,122 +343,176 @@ export const ConfinedSpace: React.FC<FormProps> = ({ permits, onSetPermits, curr
         </div>
       </div>
 
-      {/* SECTION 2: ATMOSPHERIC GAS MEASUREMENTS */}
-      <div className="space-y-4">
-        <h3 className="text-xs font-bold text-brand-navy tracking-wider uppercase border-b border-gray-150 pb-2">
-          II. Pre-Entry Gas Concentration Levels
-        </h3>
-
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      {/* SECTION 2: ATMOSPHERIC TESTING */}
+      <div className="space-y-3">
+        {sectionHeader('Atmospheric Testing')}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className="p-4 bg-white border border-gray-250 rounded-xl shadow-xs">
-            <label className="text-[10px] font-bold text-gray-450 block uppercase mb-1">OXYGEN (O₂) LEVEL (%)</label>
+            <label className="text-[10px] font-bold text-gray-450 block uppercase mb-1">
+              Oxygen Level (O₂) — %
+            </label>
             <input
               type="number"
               step="0.1"
               value={oxygenLevel}
               onChange={(e) => setOxygenLevel(e.target.value)}
               className={`w-full bg-gray-50 border rounded-lg px-3 py-2 text-base font-mono font-bold text-center outline-none ${
-                gasReport.o2Ok ? 'border-emerald-300 text-emerald-700 focus:border-emerald-500' : 'border-red-300 text-red-700 focus:border-red-500 bg-red-50 animate-pulse'
+                atmosphere.o2Ok
+                  ? 'border-emerald-300 text-emerald-700 focus:border-emerald-500'
+                  : 'border-red-300 text-red-700 focus:border-red-500 bg-red-50 animate-pulse'
               }`}
               disabled={isDisabled}
             />
-            <span className="text-[9px] text-gray-400 mt-1 block text-center font-mono">Norm: 19.5% - 23.5%</span>
+            <span className="text-[9px] text-gray-400 mt-1 block text-center font-mono">
+              Safe: 19.5% – 23.5%
+            </span>
           </div>
 
           <div className="p-4 bg-white border border-gray-250 rounded-xl shadow-xs">
-            <label className="text-[10px] font-bold text-gray-450 block uppercase mb-1">HYDROGEN SULFIDE (H₂S) (PPM)</label>
+            <label className="text-[10px] font-bold text-gray-450 block uppercase mb-1">
+              Toxic Gas Level (H₂S/CO) — PPM
+            </label>
             <input
               type="number"
-              value={h2sLevel}
-              onChange={(e) => setH2sLevel(e.target.value)}
+              value={toxicGasLevel}
+              onChange={(e) => setToxicGasLevel(e.target.value)}
               className={`w-full bg-gray-50 border rounded-lg px-3 py-2 text-base font-mono font-bold text-center outline-none ${
-                gasReport.h2sOk ? 'border-emerald-300 text-emerald-700 focus:border-emerald-500' : 'border-red-300 text-red-700 focus:border-red-500 bg-red-50 animate-pulse'
+                atmosphere.toxicOk
+                  ? 'border-emerald-300 text-emerald-700 focus:border-emerald-500'
+                  : 'border-red-300 text-red-700 focus:border-red-500 bg-red-50 animate-pulse'
               }`}
               disabled={isDisabled}
             />
-            <span className="text-[9px] text-gray-400 mt-1 block text-center font-mono">Norm: &lt; 10 PPM</span>
+            <span className="text-[9px] text-gray-400 mt-1 block text-center font-mono">
+              Safe: &lt; 10 PPM
+            </span>
           </div>
 
           <div className="p-4 bg-white border border-gray-250 rounded-xl shadow-xs">
-            <label className="text-[10px] font-bold text-gray-450 block uppercase mb-1">CARBON MONOXIDE (CO) (PPM)</label>
+            <label className="text-[10px] font-bold text-gray-450 block uppercase mb-1">
+              Flammable Gas Level (CH₄/LEL) — %
+            </label>
             <input
               type="number"
-              value={coLevel}
-              onChange={(e) => setCoLevel(e.target.value)}
+              value={flammableGasLevel}
+              onChange={(e) => setFlammableGasLevel(e.target.value)}
               className={`w-full bg-gray-50 border rounded-lg px-3 py-2 text-base font-mono font-bold text-center outline-none ${
-                gasReport.coOk ? 'border-emerald-300 text-emerald-700 focus:border-emerald-500' : 'border-red-300 text-red-700 focus:border-red-500 bg-red-50 animate-pulse'
+                atmosphere.flamOk
+                  ? 'border-emerald-300 text-emerald-700 focus:border-emerald-500'
+                  : 'border-red-300 text-red-700 focus:border-red-500 bg-red-50 animate-pulse'
               }`}
               disabled={isDisabled}
             />
-            <span className="text-[9px] text-gray-400 mt-1 block text-center font-mono">Norm: &lt; 35 PPM</span>
-          </div>
-
-          <div className="p-4 bg-white border border-gray-250 rounded-xl shadow-xs">
-            <label className="text-[10px] font-bold text-gray-450 block uppercase mb-1">METHANE (CH₄ / LEL) (%)</label>
-            <input
-              type="number"
-              value={lelLevel}
-              onChange={(e) => setLelLevel(e.target.value)}
-              className={`w-full bg-gray-50 border rounded-lg px-3 py-2 text-base font-mono font-bold text-center outline-none ${
-                gasReport.lelOk ? 'border-emerald-300 text-emerald-700 focus:border-emerald-500' : 'border-red-300 text-red-700 focus:border-red-500 bg-red-50 animate-pulse'
-              }`}
-              disabled={isDisabled}
-            />
-            <span className="text-[9px] text-gray-400 mt-1 block text-center font-mono">Norm: &lt; 10% LEL</span>
+            <span className="text-[9px] text-gray-400 mt-1 block text-center font-mono">
+              Safe: &lt; 10% LEL
+            </span>
           </div>
         </div>
 
-        {!gasReport.allOk && (
+        {!atmosphere.allOk && (
           <div className="bg-red-50 border border-red-200 text-red-800 p-4 rounded-xl flex items-start gap-2.5">
             <AlertCircle className="h-5 w-5 shrink-0 text-red-650 mt-0.5 animate-bounce" />
             <div>
               <div className="text-xs font-bold uppercase tracking-wider">Atmospheric Hazard Present</div>
-              <div className="text-xs mt-0.5 font-medium">One or more gas metrics have exceeded safe exposure limits. Forced ventilation must continue. Entry is forbidden.</div>
+              <div className="text-xs mt-0.5 font-medium">
+                One or more gas levels are outside safe limits. Forced ventilation must continue. Entry is forbidden.
+              </div>
             </div>
           </div>
         )}
       </div>
 
-      {/* SECTION 3: CHECKLIST */}
-      <div className="space-y-4">
-        <h3 className="text-xs font-bold text-brand-navy tracking-wider uppercase border-b border-gray-150 pb-2">
-          III. Safety Protective Systems Checklist
-        </h3>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {items.map((item) => (
-            <div 
-              key={item.key} 
-              className="bg-white border border-gray-250 p-4.5 rounded-xl shadow-xs flex justify-between items-center hover:border-gray-350 transition-colors"
-            >
-              <div className="flex items-center gap-2">
-                <span className="text-sm font-semibold text-brand-navy">{item.label}</span>
-                <Tooltip content={item.tooltip} />
-              </div>
-
-              <button
-                type="button"
-                onClick={() => toggleCheck(item.key)}
-                disabled={isDisabled}
-                className={`px-4 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                  checklist[item.key]
-                    ? 'bg-emerald-600 border border-emerald-700 text-white shadow-sm'
-                    : 'bg-gray-105 border border-gray-300 text-gray-655 hover:bg-gray-200'
-                }`}
-              >
-                {checklist[item.key] ? 'Applied' : 'Pending'}
-              </button>
-            </div>
-          ))}
+      {/* SECTION 3: SAFETY REQUIREMENTS */}
+      <div className="space-y-3">
+        {sectionHeader('Safety Requirements')}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <CheckToggle
+            checked={safetyChecklist.ventilationAvailable}
+            onToggle={() => toggleSafety('ventilationAvailable')}
+            label="Ventilation Available"
+            tooltip="Forced air blower must be active for at least 15 minutes prior to entry."
+          />
+          <CheckToggle
+            checked={safetyChecklist.gasDetectorAvailable}
+            onToggle={() => toggleSafety('gasDetectorAvailable')}
+            label="Gas Detector Available"
+            tooltip="A calibrated multi-gas detector must be present and functional on site."
+          />
+          <CheckToggle
+            checked={safetyChecklist.rescueEquipmentAvailable}
+            onToggle={() => toggleSafety('rescueEquipmentAvailable')}
+            label="Rescue Equipment Available"
+            tooltip="Retrieval tripod, winch, and lifeline must be set up and verified above the entry point."
+          />
+          <CheckToggle
+            checked={safetyChecklist.harnessUsed}
+            onToggle={() => toggleSafety('harnessUsed')}
+            label="Harness Used"
+            tooltip="All entrants must wear a full-body safety harness connected to the lifeline at all times."
+          />
         </div>
       </div>
 
-      {/* SECTION 4: SIGNATURES */}
-      <div className="space-y-4">
-        <h3 className="text-xs font-bold text-brand-navy tracking-wider uppercase border-b border-gray-150 pb-2">
-          IV. Multi-Officer Entry Clearance Authorization
-        </h3>
+      {/* SECTION 4: PERSONNEL */}
+      <div className="space-y-3">
+        {sectionHeader('Personnel')}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div>
+            <label className="text-xs font-bold text-gray-550 block mb-1">AUTHORIZED ENTRANTS</label>
+            <input
+              type="text"
+              value={authorizedEntrants}
+              onChange={(e) => setAuthorizedEntrants(e.target.value)}
+              placeholder="Full name(s) of authorized entrants"
+              className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-brand-orange"
+              disabled={isDisabled}
+            />
+          </div>
+          <div>
+            <label className="text-xs font-bold text-gray-550 block mb-1">ENTRY TIME</label>
+            <input
+              type="time"
+              value={entryTime}
+              onChange={(e) => setEntryTime(e.target.value)}
+              className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-brand-orange"
+              disabled={isDisabled}
+            />
+          </div>
+          <div>
+            <label className="text-xs font-bold text-gray-550 block mb-1">EXIT TIME</label>
+            <input
+              type="time"
+              value={exitTime}
+              onChange={(e) => setExitTime(e.target.value)}
+              className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-brand-orange"
+              disabled={isDisabled}
+            />
+          </div>
+        </div>
+      </div>
 
+      {/* SECTION 5: EMERGENCY PREPAREDNESS */}
+      <div className="space-y-3">
+        {sectionHeader('Emergency Preparedness')}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <CheckToggle
+            checked={emergencyChecklist.rescueTeamInformed}
+            onToggle={() => toggleEmergency('rescueTeamInformed')}
+            label="Rescue Team Informed"
+            tooltip="The designated rescue team has been briefed and is on standby for the duration of confined space entry."
+          />
+          <CheckToggle
+            checked={emergencyChecklist.emergencyContactAvailable}
+            onToggle={() => toggleEmergency('emergencyContactAvailable')}
+            label="Emergency Contact Available"
+            tooltip="An emergency contact number is posted at the entry point and all personnel are aware of it."
+          />
+        </div>
+      </div>
+
+      {/* SECTION 6: SIGNATURES */}
+      <div className="space-y-3">
+        {sectionHeader('Multi-Officer Entry Clearance Authorization')}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <SignaturePad
             label="1. CERTIFIED GAS TESTER"
@@ -462,7 +521,6 @@ export const ConfinedSpace: React.FC<FormProps> = ({ permits, onSetPermits, curr
             savedSignature={gasTesterSig}
             disabled={isDisabled}
           />
-
           <SignaturePad
             label="2. ENTRY SUPERVISOR"
             role="Site Entry Supervisor"

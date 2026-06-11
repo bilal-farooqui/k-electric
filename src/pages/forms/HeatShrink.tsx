@@ -20,21 +20,30 @@ export const HeatShrink: React.FC<FormProps> = ({ permits, onSetPermits, current
   const [permitId, setPermitId] = useState('');
   const [status, setStatus] = useState<'draft' | 'pending' | 'approved' | 'rejected'>('draft');
 
-  // Form State
-  const [jointKitRef, setJointKitRef] = useState('Raychem 11kV Jointing Kit');
-  const [cableType, setCableType] = useState('XLPE Insulated');
-  const [jointLocation, setJointLocation] = useState('Trench Clifton, Block 5');
-  const [jointerNames, setJointerNames] = useState('');
-  const [workDate, setWorkDate] = useState(new Date().toISOString().split('T')[0]);
-  
-  const [checklist, setChecklist] = useState<Record<string, boolean>>({
-    gasHoseLeakTest: false,
-    extinguisherPlaced: false,
-    flammablesCleared: false,
-    heatBarriersUsed: false,
-    fireWatchCompleted: false,
+  // Job Information
+  const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
+  const [cableId, setCableId] = useState('');
+  const [jointLocation, setJointLocation] = useState('');
+
+  // Heat Work Checklist
+  const [heatChecklist, setHeatChecklist] = useState<Record<string, boolean>>({
+    heatGunInspected: false,
+    fireExtinguisherAvailable: false,
+    cableIsolated: false,
+    ppeWorn: false,
   });
 
+  // Materials Used
+  const [heatShrinkSleeve, setHeatShrinkSleeve] = useState('');
+  const [jointKit, setJointKit] = useState('Raychem 11kV Jointing Kit');
+  const [connectorType, setConnectorType] = useState('');
+
+  // Work Completion
+  const [jointTested, setJointTested] = useState(false);
+  const [supervisorApproval, setSupervisorApproval] = useState(false);
+  const [completionTime, setCompletionTime] = useState('');
+
+  // Signatures
   const [jointerSig, setJointerSig] = useState('');
   const [supervisorSig, setSupervisorSig] = useState('');
 
@@ -43,80 +52,84 @@ export const HeatShrink: React.FC<FormProps> = ({ permits, onSetPermits, current
     if (existing) {
       setPermitId(existing.id);
       setStatus(existing.status);
-      const data = existing.formData;
-      if (data) {
-        setJointKitRef(data.jointKitRef || '');
-        setCableType(data.cableType || 'XLPE Insulated');
-        setJointLocation(data.jointLocation || '');
-        setJointerNames(data.jointerNames || '');
-        setWorkDate(data.workDate || '');
-        setChecklist(data.checklist || {});
-        setJointerSig(data.jointerSig || '');
-        setSupervisorSig(data.supervisorSig || '');
+      const d = existing.formData;
+      if (d) {
+        setDate(d.date || new Date().toISOString().split('T')[0]);
+        setCableId(d.cableId || '');
+        setJointLocation(d.jointLocation || '');
+        setHeatChecklist(d.heatChecklist || {});
+        setHeatShrinkSleeve(d.heatShrinkSleeve || '');
+        setJointKit(d.jointKit || 'Raychem 11kV Jointing Kit');
+        setConnectorType(d.connectorType || '');
+        setJointTested(!!d.jointTested);
+        setSupervisorApproval(!!d.supervisorApproval);
+        setCompletionTime(d.completionTime || '');
+        setJointerSig(d.jointerSig || '');
+        setSupervisorSig(d.supervisorSig || '');
       }
     } else {
       setPermitId(`KE-HS-${Math.floor(100000 + Math.random() * 900000)}`);
       setStatus('draft');
-      setJointKitRef('Raychem 11kV Jointing Kit');
-      setCableType('XLPE Insulated');
-      setJointLocation('Trench Clifton, Block 5');
-      setJointerNames(currentUser?.name || '');
-      setWorkDate(new Date().toISOString().split('T')[0]);
-      setChecklist({
-        gasHoseLeakTest: false,
-        extinguisherPlaced: false,
-        flammablesCleared: false,
-        heatBarriersUsed: false,
-        fireWatchCompleted: false,
-      });
+      setDate(new Date().toISOString().split('T')[0]);
+      setCableId('');
+      setJointLocation('');
+      setHeatChecklist({ heatGunInspected: false, fireExtinguisherAvailable: false, cableIsolated: false, ppeWorn: false });
+      setHeatShrinkSleeve('');
+      setJointKit('');
+      setConnectorType('');
+      setJointTested(false);
+      setSupervisorApproval(false);
+      setCompletionTime('');
       setJointerSig('');
       setSupervisorSig('');
     }
   }, [permits, editId, currentUser]);
 
-  const toggleCheck = (item: string) => {
-    setChecklist((prev) => ({ ...prev, [item]: !prev[item] }));
+  const toggleHeat = (key: string) =>
+    setHeatChecklist((prev) => ({ ...prev, [key]: !prev[key] }));
+
+  const buildFormData = () => ({
+    date,
+    cableId,
+    jointLocation,
+    heatChecklist,
+    heatShrinkSleeve,
+    jointKit,
+    connectorType,
+    jointTested,
+    supervisorApproval,
+    completionTime,
+    jointerSig,
+    supervisorSig,
+  });
+
+  const saveToStore = (permit: Permit) => {
+    const index = permits.findIndex((p) => p.id === permitId);
+    const updated =
+      index > -1 ? permits.map((p, i) => (i === index ? permit : p)) : [permit, ...permits];
+    onSetPermits(updated);
+    localStorage.setItem('ke_ptw_permits', JSON.stringify(updated));
+    return updated;
   };
 
   const handleSaveDraft = () => {
-    const newPermit: Permit = {
+    saveToStore({
       id: permitId,
       type: 'heat-shrink',
       title: 'Heat Shrink PTW',
       status: 'draft',
       createdAt: new Date().toLocaleString(),
-      submittedBy: jointerNames,
-      formData: {
-        jointKitRef,
-        cableType,
-        jointLocation,
-        jointerNames,
-        workDate,
-        checklist,
-        jointerSig,
-        supervisorSig,
-      },
-    };
-
-    const index = permits.findIndex((p) => p.id === permitId);
-    let updated: Permit[];
-    if (index > -1) {
-      updated = [...permits];
-      updated[index] = newPermit;
-    } else {
-      updated = [newPermit, ...permits];
-    }
-
-    onSetPermits(updated);
-    localStorage.setItem('ke_ptw_permits', JSON.stringify(updated));
+      submittedBy: currentUser?.name || '',
+      formData: buildFormData(),
+    });
     alert('Draft saved successfully!');
   };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!jointKitRef || !jointLocation || !jointerNames) {
-      alert('Please fill out Joint Kit, Location, and Jointer Names.');
+    if (!cableId || !jointLocation) {
+      alert('Please fill out Cable ID and Joint Location.');
       return;
     }
 
@@ -125,44 +138,24 @@ export const HeatShrink: React.FC<FormProps> = ({ permits, onSetPermits, current
       return;
     }
 
-    const allChecked = Object.values(checklist).every((val) => val === true);
-    const finalStatus = allChecked ? 'approved' : 'pending';
+    const allHeatChecked = Object.values(heatChecklist).every(Boolean);
+    const allCompletionChecked = jointTested && supervisorApproval;
+    const finalStatus = allHeatChecked && allCompletionChecked ? 'approved' : 'pending';
 
-    const newPermit: Permit = {
+    saveToStore({
       id: permitId,
       type: 'heat-shrink',
       title: 'Heat Shrink PTW',
       status: finalStatus,
       createdAt: new Date().toLocaleString(),
-      submittedBy: jointerNames,
+      submittedBy: currentUser?.name || '',
       approvedBy: finalStatus === 'approved' ? 'Substation Cable Jointing Superintendent' : undefined,
       approvedAt: finalStatus === 'approved' ? new Date().toLocaleString() : undefined,
-      formData: {
-        jointKitRef,
-        cableType,
-        jointLocation,
-        jointerNames,
-        workDate,
-        checklist,
-        jointerSig,
-        supervisorSig,
-      },
-    };
-
-    const index = permits.findIndex((p) => p.id === permitId);
-    let updated: Permit[];
-    if (index > -1) {
-      updated = [...permits];
-      updated[index] = newPermit;
-    } else {
-      updated = [newPermit, ...permits];
-    }
-
-    onSetPermits(updated);
-    localStorage.setItem('ke_ptw_permits', JSON.stringify(updated));
+      formData: buildFormData(),
+    });
     setStatus(finalStatus);
     alert(
-      allChecked
+      finalStatus === 'approved'
         ? 'Heat Shrink jointing permit authorized! Hot work is cleared to proceed.'
         : 'Warning: Missing critical pre-heat checks. Permit set to Pending review.'
     );
@@ -172,20 +165,12 @@ export const HeatShrink: React.FC<FormProps> = ({ permits, onSetPermits, current
   const handleApprove = () => {
     const existing = permits.find((p) => p.id === permitId);
     if (!existing) return;
-    const updatedPermit: Permit = {
+    saveToStore({
       ...existing,
       status: 'approved',
       approvedBy: `${currentUser?.name || 'Admin'} (${currentUser?.role || 'Safety Officer'})`,
       approvedAt: new Date().toLocaleString(),
-    };
-    const index = permits.findIndex((p) => p.id === permitId);
-    let updated = [...permits];
-    if (index > -1) {
-      updated[index] = updatedPermit;
-    } else {
-      updated = [updatedPermit, ...permits];
-    }
-    onSetPermits(updated);
+    });
     setStatus('approved');
     alert('Permit approved successfully!');
     navigate('/admin');
@@ -194,32 +179,64 @@ export const HeatShrink: React.FC<FormProps> = ({ permits, onSetPermits, current
   const handleReject = () => {
     const existing = permits.find((p) => p.id === permitId);
     if (!existing) return;
-    const updatedPermit: Permit = {
-      ...existing,
-      status: 'rejected',
-    };
-    const index = permits.findIndex((p) => p.id === permitId);
-    let updated = [...permits];
-    if (index > -1) {
-      updated[index] = updatedPermit;
-    } else {
-      updated = [updatedPermit, ...permits];
-    }
-    onSetPermits(updated);
+    saveToStore({ ...existing, status: 'rejected' });
     setStatus('rejected');
     alert('Permit rejected.');
     navigate('/admin');
   };
 
-  const items = [
-    { key: 'gasHoseLeakTest', label: 'Gas Cylinder & Hose Leak Test', tooltip: 'Use soapy water to test regulator connection, hose lines, and gas torch fittings for leaks.' },
-    { key: 'extinguisherPlaced', label: 'Fire Extinguisher on Site (<2m)', tooltip: 'Keep 1x fully charged Dry Powder or CO2 fire extinguisher within arm\'s reach of the jointer.' },
-    { key: 'flammablesCleared', label: 'Flammables Cleared (10m Radius)', tooltip: 'Remove cardboard boxes, cable packaging, dry grass, and petrol containers from hot work area.' },
-    { key: 'heatBarriersUsed', label: 'Heat Barriers / Deflectors Installed', tooltip: 'If jointing in a cable tray adjacent to other live cables, install refractory heat sheets to deflect gas torch flame.' },
-    { key: 'fireWatchCompleted', label: '30-Min Post-Work Fire Watch Planned', tooltip: 'A dedicated safety crew must monitor the joint site for 30 minutes after extinguishing the gas torch.' },
-  ];
+  const isDisabled =
+    status === 'approved' ||
+    status === 'rejected' ||
+    (currentUser?.role === 'Principal Safety Officer' && status === 'pending');
 
-  const isDisabled = status === 'approved' || status === 'rejected' || (currentUser?.role === 'Principal Safety Officer' && status === 'pending');
+  const sectionHeader = (label: string) => (
+    <div
+      style={{
+        color: '#1e3a5f',
+        fontSize: '0.7rem',
+        fontWeight: 700,
+        letterSpacing: '0.1em',
+        textTransform: 'uppercase',
+        borderBottom: '1.5px solid #1e3a5f',
+        paddingBottom: '4px',
+        marginBottom: '10px',
+      }}
+    >
+      {label}
+    </div>
+  );
+
+  const CheckToggle = ({
+    checked,
+    onToggle,
+    label,
+    tooltip,
+  }: {
+    checked: boolean;
+    onToggle: () => void;
+    label: string;
+    tooltip?: string;
+  }) => (
+    <div className="flex justify-between items-center bg-white border border-gray-250 rounded-xl px-4 py-3 shadow-xs hover:border-gray-350 transition-colors">
+      <div className="flex items-center gap-2">
+        <span className="text-sm font-semibold text-brand-navy">{label}</span>
+        {tooltip && <Tooltip content={tooltip} />}
+      </div>
+      <button
+        type="button"
+        onClick={onToggle}
+        disabled={isDisabled}
+        className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+          checked
+            ? 'bg-emerald-600 border border-emerald-700 text-white shadow-sm'
+            : 'bg-gray-105 border border-gray-300 text-gray-655 hover:bg-gray-200'
+        }`}
+      >
+        {checked ? 'Yes' : 'No'}
+      </button>
+    </div>
+  );
 
   return (
     <FormWrapper
@@ -233,66 +250,134 @@ export const HeatShrink: React.FC<FormProps> = ({ permits, onSetPermits, current
       onApprove={handleApprove}
       onReject={handleReject}
     >
-      {/* SECTION 1: DETAILS */}
-      <div className="space-y-4">
-        <h3 className="text-xs font-bold text-brand-navy tracking-wider uppercase border-b border-gray-150 pb-2">
-          I. Cable Jointing Specifications
-        </h3>
-        
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+      {/* DESCRIPTION BANNER */}
+      <div
+        style={{
+          background: '#f0f4f9',
+          border: '1px solid #c7d5e8',
+          borderRadius: '10px',
+          padding: '14px 18px',
+          fontSize: '0.875rem',
+          color: '#374151',
+          lineHeight: '1.6',
+        }}
+      >
+        This PTW is applicable during cable jointing, termination, or any heat shrink activity involving
+        heat guns and energized cable work.
+      </div>
+
+      {/* SECTION 1: JOB INFORMATION */}
+      <div className="space-y-3">
+        {sectionHeader('Job Information')}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <label className="text-xs font-bold text-gray-550 block mb-1">CABLE JOINT KIT REF</label>
+            <label className="text-xs font-bold text-gray-550 block mb-1">PERMIT NUMBER</label>
             <input
               type="text"
-              value={jointKitRef}
-              onChange={(e) => setJointKitRef(e.target.value)}
+              value={permitId}
+              readOnly
+              className="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-500 font-mono outline-none"
+            />
+          </div>
+          <div>
+            <label className="text-xs font-bold text-gray-550 block mb-1">DATE</label>
+            <input
+              type="date"
+              value={date}
+              onChange={(e) => setDate(e.target.value)}
               className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-brand-orange"
               disabled={isDisabled}
             />
           </div>
-
           <div>
-            <label className="text-xs font-bold text-gray-550 block mb-1">CABLE INSULATION TYPE</label>
-            <select
-              value={cableType}
-              onChange={(e) => setCableType(e.target.value)}
+            <label className="text-xs font-bold text-gray-550 block mb-1">CABLE ID</label>
+            <input
+              type="text"
+              value={cableId}
+              onChange={(e) => setCableId(e.target.value)}
+              placeholder="e.g. XLPE-11kV-CB-04"
               className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-brand-orange"
               disabled={isDisabled}
-            >
-              <option>XLPE Insulated</option>
-              <option>PILC (Paper Insulated Lead Covered)</option>
-              <option>PVC Insulated</option>
-            </select>
+            />
           </div>
-
           <div>
-            <label className="text-xs font-bold text-gray-550 block mb-1">JOINT SITE LOCATION</label>
+            <label className="text-xs font-bold text-gray-550 block mb-1">JOINT LOCATION</label>
             <input
               type="text"
               value={jointLocation}
               onChange={(e) => setJointLocation(e.target.value)}
+              placeholder="e.g. Trench Clifton, Block 5"
               className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-brand-orange"
               disabled={isDisabled}
             />
           </div>
+        </div>
+      </div>
 
+      {/* SECTION 2: HEAT WORK CHECKLIST */}
+      <div className="space-y-3">
+        {sectionHeader('Heat Work Checklist')}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <CheckToggle
+            checked={heatChecklist.heatGunInspected}
+            onToggle={() => toggleHeat('heatGunInspected')}
+            label="Heat Gun Inspected"
+            tooltip="Inspect heat gun for damaged cables, faulty trigger, and ensure temperature rating is appropriate for the sleeve type."
+          />
+          <CheckToggle
+            checked={heatChecklist.fireExtinguisherAvailable}
+            onToggle={() => toggleHeat('fireExtinguisherAvailable')}
+            label="Fire Extinguisher Available"
+            tooltip="Keep 1x fully charged Dry Powder or CO2 fire extinguisher within arm's reach of the jointer at all times."
+          />
+          <CheckToggle
+            checked={heatChecklist.cableIsolated}
+            onToggle={() => toggleHeat('cableIsolated')}
+            label="Cable Isolated"
+            tooltip="Confirm the cable section is de-energized, locked out, and tagged before any heat work commences."
+          />
+          <CheckToggle
+            checked={heatChecklist.ppeWorn}
+            onToggle={() => toggleHeat('ppeWorn')}
+            label="PPE Worn"
+            tooltip="All personnel must wear heat-resistant gloves, safety glasses, and flame-retardant coveralls during hot work."
+          />
+        </div>
+      </div>
+
+      {/* SECTION 3: MATERIALS USED */}
+      <div className="space-y-3">
+        {sectionHeader('Materials Used')}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div>
-            <label className="text-xs font-bold text-gray-550 block mb-1">SENIOR JOINTER NAMES</label>
+            <label className="text-xs font-bold text-gray-550 block mb-1">HEAT SHRINK SLEEVE</label>
             <input
               type="text"
-              value={jointerNames}
-              onChange={(e) => setJointerNames(e.target.value)}
+              value={heatShrinkSleeve}
+              onChange={(e) => setHeatShrinkSleeve(e.target.value)}
+              placeholder="e.g. 3M HVST-1224/8-R"
               className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-brand-orange"
               disabled={isDisabled}
             />
           </div>
-
           <div>
-            <label className="text-xs font-bold text-gray-550 block mb-1">SCHEDULED WORK DATE</label>
+            <label className="text-xs font-bold text-gray-550 block mb-1">JOINT KIT</label>
             <input
-              type="date"
-              value={workDate}
-              onChange={(e) => setWorkDate(e.target.value)}
+              type="text"
+              value={jointKit}
+              onChange={(e) => setJointKit(e.target.value)}
+              placeholder="e.g. Raychem 11kV Jointing Kit"
+              className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-brand-orange"
+              disabled={isDisabled}
+            />
+          </div>
+          <div>
+            <label className="text-xs font-bold text-gray-550 block mb-1">CONNECTOR TYPE</label>
+            <input
+              type="text"
+              value={connectorType}
+              onChange={(e) => setConnectorType(e.target.value)}
+              placeholder="e.g. Compression Lug, Straight-Through"
               className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-brand-orange"
               disabled={isDisabled}
             />
@@ -300,57 +385,50 @@ export const HeatShrink: React.FC<FormProps> = ({ permits, onSetPermits, current
         </div>
       </div>
 
-      {/* SECTION 2: CHECKLIST */}
-      <div className="space-y-4">
-        <h3 className="text-xs font-bold text-brand-navy tracking-wider uppercase border-b border-gray-150 pb-2">
-          II. Pre-Heat Jointing Safety Checklist
-        </h3>
-
+      {/* SECTION 4: WORK COMPLETION */}
+      <div className="space-y-3">
+        {sectionHeader('Work Completion')}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
+          <CheckToggle
+            checked={jointTested}
+            onToggle={() => !isDisabled && setJointTested((v) => !v)}
+            label="Joint Tested"
+            tooltip="Post-jointing insulation resistance test (IR test / HV test) must be completed and values recorded."
+          />
+          <CheckToggle
+            checked={supervisorApproval}
+            onToggle={() => !isDisabled && setSupervisorApproval((v) => !v)}
+            label="Supervisor Approval"
+            tooltip="Shift supervisor must physically inspect the completed joint and sign off before site is cleared."
+          />
+        </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {items.map((item) => (
-            <div 
-              key={item.key} 
-              className="bg-white border border-gray-250 p-4.5 rounded-xl shadow-xs flex justify-between items-center hover:border-gray-350 transition-colors"
-            >
-              <div className="flex items-center gap-2">
-                <span className="text-sm font-semibold text-brand-navy">{item.label}</span>
-                <Tooltip content={item.tooltip} />
-              </div>
-
-              <button
-                type="button"
-                onClick={() => toggleCheck(item.key)}
-                disabled={isDisabled}
-                className={`px-4 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                  checklist[item.key]
-                    ? 'bg-emerald-600 border border-emerald-700 text-white shadow-sm'
-                    : 'bg-gray-105 border border-gray-300 text-gray-655 hover:bg-gray-200'
-                }`}
-              >
-                {checklist[item.key] ? 'Verified' : 'Pending'}
-              </button>
-            </div>
-          ))}
+          <div>
+            <label className="text-xs font-bold text-gray-550 block mb-1">COMPLETION TIME</label>
+            <input
+              type="time"
+              value={completionTime}
+              onChange={(e) => setCompletionTime(e.target.value)}
+              className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-brand-orange"
+              disabled={isDisabled}
+            />
+          </div>
         </div>
       </div>
 
-      {/* SECTION 3: SIGNATURES */}
-      <div className="space-y-4">
-        <h3 className="text-xs font-bold text-brand-navy tracking-wider uppercase border-b border-gray-150 pb-2">
-          III. Jointing Authorization Sign-Off
-        </h3>
-
+      {/* SECTION 5: SIGNATURES */}
+      <div className="space-y-3">
+        {sectionHeader('Jointing Authorization Sign-Off')}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <SignaturePad
-            label="1. SENIOR CABLE JOINTER SIGNATURE"
+            label="1. SENIOR CABLE JOINTER"
             role="Senior Cable Jointer"
             onSign={setJointerSig}
             savedSignature={jointerSig}
             disabled={isDisabled}
           />
-
           <SignaturePad
-            label="2. SITE SHIFT SUPERVISOR SIGNATURE"
+            label="2. SITE SHIFT SUPERVISOR"
             role="Shift Jointing Supervisor"
             onSign={setSupervisorSig}
             savedSignature={supervisorSig}

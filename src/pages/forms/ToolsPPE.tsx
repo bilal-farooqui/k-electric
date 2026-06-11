@@ -259,13 +259,13 @@ export const ToolsPPE: React.FC<FormProps> = ({ permits, onSetPermits, currentUs
     { key: 'testingMeter', label: 'Testing Meter', tooltip: 'Digital multimeter or insulation megger calibrated.' },
   ];
 
-  const isAuthorizerDisabled = status === 'approved' || status === 'rejected' || currentUser?.label !== 'admin';
-  const isDisabled = status === 'approved' || status === 'rejected' || (currentUser?.label === 'admin' && status === 'pending');
+  const isAuthorizerDisabled = status === 'approved' || status === 'rejected' || currentUser?.role !== 'Principal Safety Officer';
+  const isDisabled = status === 'approved' || status === 'rejected' || (currentUser?.role === 'Principal Safety Officer' && status === 'pending');
 
   // Find approval data
   const existingPermit = permits.find((p) => p.id === permitId);
-  const approvedByVal = existingPermit?.approvedBy || (status === 'pending' && currentUser?.label === 'admin' ? `${currentUser?.name} (${currentUser?.role || 'Safety Officer'})` : 'Awaiting Approval');
-  const approvedAtVal = existingPermit?.approvedAt || (status === 'pending' && currentUser?.label === 'admin' ? new Date().toLocaleDateString() + ' ' + new Date().toLocaleTimeString() : 'Pending Review');
+  const approvedByVal = existingPermit?.approvedBy || (status === 'pending' && currentUser?.role === 'Principal Safety Officer' ? `${currentUser?.name} (${currentUser?.role || 'Safety Officer'})` : 'Awaiting Approval');
+  const approvedAtVal = existingPermit?.approvedAt || (status === 'pending' && currentUser?.role === 'Principal Safety Officer' ? new Date().toLocaleDateString() + ' ' + new Date().toLocaleTimeString() : 'Pending Review');
 
   return (
     <FormWrapper
@@ -275,7 +275,7 @@ export const ToolsPPE: React.FC<FormProps> = ({ permits, onSetPermits, currentUs
       status={status}
       onSaveDraft={handleSaveDraft}
       onSubmit={handleSubmit}
-      isAdmin={currentUser?.label === 'admin'}
+      isAdmin={currentUser?.role === 'Principal Safety Officer'}
       onApprove={handleApprove}
       onReject={handleReject}
     >

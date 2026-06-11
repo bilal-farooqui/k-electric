@@ -258,7 +258,7 @@ export const ToolboxTalk: React.FC<FormProps> = ({ permits, onSetPermits, curren
     navigate('/admin');
   };
 
-  const isDisabled = status === 'approved' || status === 'rejected' || (currentUser?.label === 'admin' && status === 'pending');
+  const isDisabled = status === 'approved' || status === 'rejected' || (currentUser?.role === 'Principal Safety Officer' && status === 'pending');
 
   return (
     <FormWrapper
@@ -268,7 +268,7 @@ export const ToolboxTalk: React.FC<FormProps> = ({ permits, onSetPermits, curren
       status={status}
       onSaveDraft={handleSaveDraft}
       onSubmit={handleSubmit}
-      isAdmin={currentUser?.label === 'admin'}
+      isAdmin={currentUser?.role === 'Principal Safety Officer'}
       onApprove={handleApprove}
       onReject={handleReject}
     >
@@ -287,7 +287,7 @@ export const ToolboxTalk: React.FC<FormProps> = ({ permits, onSetPermits, curren
           </div>
 
           <div>
-            <label className="text-xs font-bold text-gray-550 block mb-1">DATE</label>
+            <label className="text-xs font-bold text-gray-550 block mb-1">Date</label>
             <input
               type="date"
               required
@@ -299,7 +299,7 @@ export const ToolboxTalk: React.FC<FormProps> = ({ permits, onSetPermits, curren
           </div>
 
           <div>
-            <label className="text-xs font-bold text-gray-550 block mb-1">SITE LOCATION</label>
+            <label className="text-xs font-bold text-gray-550 block mb-1">Site Location</label>
             <input
               type="text"
               required
@@ -312,7 +312,7 @@ export const ToolboxTalk: React.FC<FormProps> = ({ permits, onSetPermits, curren
           </div>
 
           <div>
-            <label className="text-xs font-bold text-gray-550 block mb-1">SUPERVISOR NAME</label>
+            <label className="text-xs font-bold text-gray-550 block mb-1">Supervisor Name</label>
             <input
               type="text"
               required
@@ -324,7 +324,7 @@ export const ToolboxTalk: React.FC<FormProps> = ({ permits, onSetPermits, curren
           </div>
 
           <div>
-            <label className="text-xs font-bold text-gray-550 block mb-1">TEAM LEADER</label>
+            <label className="text-xs font-bold text-gray-550 block mb-1">Team Leader</label>
             <input
               type="text"
               required
@@ -335,6 +335,7 @@ export const ToolboxTalk: React.FC<FormProps> = ({ permits, onSetPermits, curren
               disabled={isDisabled}
             />
           </div>
+
         </div>
       </div>
 
@@ -348,7 +349,7 @@ export const ToolboxTalk: React.FC<FormProps> = ({ permits, onSetPermits, curren
         
         <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
           <div>
-            <label className="text-xs font-bold text-gray-550 block mb-1">NATURE OF JOB</label>
+            <label className="text-xs font-bold text-gray-550 block mb-1">Nature of Job</label>
             <input
               type="text"
               required
@@ -361,7 +362,7 @@ export const ToolboxTalk: React.FC<FormProps> = ({ permits, onSetPermits, curren
           </div>
 
           <div>
-            <label className="text-xs font-bold text-gray-555 block mb-1">HAZARD IDENTIFICATION</label>
+            <label className="text-xs font-bold text-gray-555 block mb-1">Hazard Identification</label>
             <input
               type="text"
               required
@@ -374,7 +375,7 @@ export const ToolboxTalk: React.FC<FormProps> = ({ permits, onSetPermits, curren
           </div>
 
           <div>
-            <label className="text-xs font-bold text-gray-550 block mb-1">RISK LEVEL</label>
+            <label className="text-xs font-bold text-gray-550 block mb-1">Risk Level</label>
             <select
               value={riskLevel}
               onChange={(e) => setRiskLevel(e.target.value)}
@@ -386,6 +387,7 @@ export const ToolboxTalk: React.FC<FormProps> = ({ permits, onSetPermits, curren
               <option>High</option>
             </select>
           </div>
+
         </div>
       </div>
 
@@ -452,9 +454,8 @@ export const ToolboxTalk: React.FC<FormProps> = ({ permits, onSetPermits, curren
         <div className="overflow-x-auto border border-gray-200 rounded-xl bg-white shadow-xs">
           <table className="w-full text-left border-collapse">
             <thead>
-              <tr className="bg-gray-50 text-[10px] font-bold text-gray-500 uppercase border-b border-gray-200">
+              <tr className="bg-gray-55 text-[10px] font-bold text-gray-500 uppercase border-b border-gray-200">
                 <th className="px-4 py-2.5">Team Member Names</th>
-                <th className="px-4 py-2.5">Role / Designation</th>
                 <th className="px-4 py-2.5">Signatures</th>
                 {!isDisabled && (
                   <th className="px-4 py-2.5 text-right">Action</th>
@@ -476,32 +477,20 @@ export const ToolboxTalk: React.FC<FormProps> = ({ permits, onSetPermits, curren
                     />
                   </td>
                   <td className="px-4 py-2">
-                    <select
-                      value={member.designation}
-                      onChange={(e) => handleCrewChange(idx, 'designation', e.target.value)}
-                      className="bg-transparent border-0 outline-none w-full font-medium text-gray-700"
-                      disabled={isDisabled}
-                    >
-                      <option>Lineman I</option>
-                      <option>Lineman II</option>
-                      <option>Assistant Lineman</option>
-                      <option>Safety Watcher</option>
-                    </select>
-                  </td>
-                  <td className="px-4 py-2">
                     <button
                       type="button"
                       onClick={() => handleCrewChange(idx, 'signed', !member.signed)}
                       disabled={isDisabled}
                       className={`px-3 py-1 rounded-md text-[10px] font-bold uppercase transition-all cursor-pointer ${
                         member.signed
-                          ? 'bg-emerald-100 text-emerald-800 border border-emerald-350'
+                          ? 'bg-emerald-100 text-emerald-800 border border-emerald-355'
                           : 'bg-red-50 text-red-800 border border-red-200'
                       }`}
                     >
                       {member.signed ? 'Confirmed' : 'Sign Off'}
                     </button>
                   </td>
+
                   {!isDisabled && (
                     <td className="px-4 py-2 text-right">
                       <button

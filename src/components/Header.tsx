@@ -66,18 +66,18 @@ export const Header: React.FC<HeaderProps> = ({
     <header className="sticky top-0 z-40 bg-brand-primary border-b border-gray-800 text-white px-6 py-3.5 flex items-center justify-between shadow-md print:hidden">
       {/* Brand Info */}
       <div className="flex items-center gap-3">
-        <div 
-          onClick={() => navigate('/')} 
-          className="h-9 w-9 bg-brand-accent rounded-lg flex items-center justify-center font-extrabold text-black cursor-pointer shadow-[0_0_15px_rgba(245,158,11,0.25)] hover:scale-105 transition-transform"
-        >
-          KE
-        </div>
+        <img
+          src="/kelectric.png"
+          alt="KElectric Logo"
+          onClick={() => navigate('/')}
+          className="h-9 w-auto cursor-pointer hover:opacity-80 transition-opacity"
+        />
         <div>
           <span 
             onClick={() => navigate('/')} 
             className="font-display font-bold text-base md:text-lg tracking-tight cursor-pointer hover:text-brand-accent transition-colors"
           >
-            KE Enterprise PTW Portal
+            KElectric
           </span>
           <span className="hidden md:inline-block ml-3 px-2 py-0.5 bg-white/10 text-[10px] text-gray-300 font-mono rounded-sm border border-white/5 uppercase">
             Powering Utility Safety

@@ -450,6 +450,32 @@ app.post('/api/users/update-label', async (req, res) => {
   }
 });
 
-app.listen(PORT, () => {
-  console.log(`Backend server is running on port ${PORT}`);
+// DELETE USER PROFILE (Admin privilege)
+app.delete('/api/users/:username', async (req, res) => {
+  try {
+    const { username } = req.params;
+
+    // Prevent deleting the root admin account
+    if (username.toLowerCase() === 'admin') {
+      return res.status(400).json({ error: 'Cannot delete the main admin account' });
+    }
+
+    const user = await UserProfile.findOneAndDelete({ username: username.toLowerCase() });
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    res.json({ message: `User ${username} deleted successfully` });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to delete user', details: err.message });
+  }
 });
+
+
+if (!process.env.VERCEL) {
+  app.listen(PORT, () => {
+    console.log(`Backend server is running on port ${PORT}`);
+  });
+}
+
+export default app;

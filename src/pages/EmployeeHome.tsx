@@ -11,7 +11,6 @@ import {
   Layers,
   Flame,
   ArrowRight,
-  User,
 } from 'lucide-react';
 import type { UserProfile } from '../types/ptw';
 
@@ -98,65 +97,57 @@ export const EmployeeHome: React.FC<EmployeeHomeProps> = ({ currentUser }) => {
   ];
 
   return (
-    <div className="space-y-8 max-w-6xl mx-auto">
-      {/* Welcome Banner */}
-      <div className="relative overflow-hidden bg-brand-primary rounded-3xl p-6 md:p-8 text-white shadow-xl border border-gray-800">
-        <div className="absolute top-0 right-0 w-80 h-80 bg-brand-accent/10 rounded-full blur-3xl pointer-events-none" />
-        <div className="relative z-10 flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
-          <div className="space-y-2">
-            <span className="bg-brand-accent/20 border border-brand-accent/30 text-brand-accent text-xs font-bold px-3 py-1 rounded-full uppercase tracking-wider">
-              Field Operations Portal
-            </span>
-            <h1 className="text-2xl md:text-3xl font-extrabold font-display uppercase tracking-tight">
+    <div className="space-y-5 max-w-6xl mx-auto">
+      {/* Compact Welcome Banner */}
+      <div className="relative overflow-hidden bg-brand-primary rounded-2xl px-6 py-4 text-white shadow-lg border border-gray-800 flex items-center justify-between gap-4">
+        <div className="absolute top-0 right-0 w-64 h-full bg-brand-accent/5 rounded-full blur-3xl pointer-events-none" />
+        <div className="relative z-10 flex items-center gap-4">
+          <span className="bg-brand-accent/20 border border-brand-accent/30 text-brand-accent text-[10px] font-bold px-2.5 py-0.5 rounded-full uppercase tracking-wider shrink-0">
+            Field Ops
+          </span>
+          <div>
+            <h1 className="text-base font-extrabold font-display tracking-tight leading-tight">
               Welcome back, {currentUser.name || 'Technician'}
             </h1>
-            <p className="text-gray-300 text-sm max-w-xl">
-              Fill and submit the operational checklists and safety permits below to authorize utility tasks. Review your active details on your profile page.
+            <p className="text-gray-400 text-[11px] mt-0.5">
+              Complete and submit the operational checklists below to authorize utility tasks.
             </p>
-          </div>
-          <div className="flex gap-4">
-            <button
-              onClick={() => navigate('/profile')}
-              className="flex items-center gap-2 bg-white/10 hover:bg-white/15 border border-white/10 text-white px-4 py-2.5 rounded-xl text-xs font-bold transition-all shadow-xs cursor-pointer"
-            >
-              <User className="h-4 w-4 text-brand-accent" /> Profile Details
-            </button>
           </div>
         </div>
       </div>
 
       {/* Forms Grid section */}
       <div>
-        <div className="flex justify-between items-center mb-6">
+        <div className="flex justify-between items-center mb-4">
           <div>
-            <h2 className="text-lg font-bold text-brand-navy uppercase tracking-wide">
+            <h2 className="text-sm font-bold text-brand-navy uppercase tracking-wide">
               Active Permit-to-Work Forms
             </h2>
-            <p className="text-xs text-gray-500">Select a safety check category to open a blank sheet.</p>
+            <p className="text-xs text-gray-500 mt-0.5">Select a safety category to open a blank sheet.</p>
           </div>
-          <span className="bg-gray-200 text-gray-700 font-mono text-[10px] font-bold px-3 py-1 rounded-full border border-gray-300">
-            9 Forms Available
+          <span className="bg-gray-100 text-gray-600 font-mono text-[10px] font-bold px-3 py-1 rounded-full border border-gray-200">
+            9 Forms
           </span>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {ptwForms.map((form, idx) => {
             const Icon = form.icon;
             return (
               <div
                 key={idx}
-                className="group bg-white border border-gray-200 hover:border-gray-300 rounded-2xl p-5 shadow-xs hover:shadow-md transition-all duration-200 flex flex-col justify-between"
+                className="group bg-white border border-gray-200 hover:border-gray-300 rounded-xl p-4 shadow-xs hover:shadow-md transition-all duration-200 flex flex-col justify-between"
               >
-                <div className="space-y-4">
-                  <div className={`h-12 w-12 rounded-xl bg-linear-to-br ${form.color} text-white flex items-center justify-center shadow-sm group-hover:scale-105 transition-transform`}>
-                    <Icon className="h-6 w-6" />
+                <div className="flex items-start gap-3">
+                  <div className={`h-10 w-10 shrink-0 rounded-lg bg-linear-to-br ${form.color} text-white flex items-center justify-center shadow-sm group-hover:scale-105 transition-transform`}>
+                    <Icon className="h-5 w-5" />
                   </div>
-                  <div>
+                  <div className="min-w-0">
                     <div className="text-[10px] font-mono text-gray-400 font-bold uppercase tracking-wider">{form.code}</div>
-                    <h3 className="text-base font-bold text-brand-navy mt-0.5 group-hover:text-brand-orange transition-colors">
+                    <h3 className="text-sm font-bold text-brand-navy mt-0.5 group-hover:text-brand-orange transition-colors leading-snug">
                       {form.name}
                     </h3>
-                    <p className="text-xs text-gray-500 mt-2 leading-relaxed">
+                    <p className="text-[11px] text-gray-500 mt-1.5 leading-relaxed">
                       {form.desc}
                     </p>
                   </div>
@@ -164,7 +155,7 @@ export const EmployeeHome: React.FC<EmployeeHomeProps> = ({ currentUser }) => {
 
                 <button
                   onClick={() => navigate(form.path)}
-                  className="mt-6 w-full flex items-center justify-center gap-1.5 bg-gray-50 hover:bg-brand-navy text-gray-700 hover:text-brand-accent border border-gray-200 hover:border-brand-navy px-4 py-2.5 rounded-xl text-xs font-bold transition-all shadow-2xs cursor-pointer"
+                  className="mt-4 w-full flex items-center justify-center gap-1.5 bg-gray-50 hover:bg-brand-navy text-gray-700 hover:text-brand-accent border border-gray-200 hover:border-brand-navy px-3 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer"
                 >
                   Start New Entry <ArrowRight className="h-3.5 w-3.5" />
                 </button>

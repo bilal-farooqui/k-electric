@@ -52,7 +52,7 @@ export const Profile: React.FC<ProfileProps> = ({
           Profile Settings
         </h1>
         <p className="text-gray-500 text-sm mt-0.5">
-          Edit your security clearance details, badge ID, and department settings synced with MongoDB.
+          Update your display name and badge ID. Role and clearance level are managed by the system administrator.
         </p>
       </div>
 
@@ -94,8 +94,8 @@ export const Profile: React.FC<ProfileProps> = ({
         {/* Right Column: Contact Details & Workspace Roles */}
         <div className="bg-white border border-gray-200 p-6 rounded-2xl shadow-xs md:col-span-2 flex flex-col justify-between gap-6">
           <div className="space-y-6">
-            <h3 className="text-xs font-bold text-gray-450 uppercase tracking-widest border-b border-gray-150 pb-2 flex items-center gap-1.5">
-              <Building className="h-4 w-4 text-brand-navy" /> Edit Profile Details (MongoDB Synced)
+            <h3 className="text-xs font-bold text-gray-500 uppercase tracking-widest border-b border-gray-150 pb-2 flex items-center gap-1.5">
+              <Building className="h-4 w-4 text-brand-navy" /> Profile Information
             </h3>
             
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -151,7 +151,7 @@ export const Profile: React.FC<ProfileProps> = ({
               disabled={isSaving}
               className="flex items-center gap-1.5 bg-brand-navy hover:bg-brand-primary text-brand-accent px-4 py-2 rounded-xl text-xs font-bold shadow-sm hover:shadow-md transition-all cursor-pointer disabled:opacity-50"
             >
-              <Save className="h-4 w-4" /> {isSaving ? 'Syncing...' : 'Save to Database'}
+              <Save className="h-4 w-4" /> {isSaving ? 'Saving...' : 'Save Changes'}
             </button>
           </div>
         </div>

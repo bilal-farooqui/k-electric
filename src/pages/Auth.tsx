@@ -60,14 +60,16 @@ export const Auth: React.FC<AuthProps> = ({ onLoginSuccess }) => {
         
         {/* Brand identity */}
         <div className="flex flex-col items-center mb-8 text-center">
-          <div className="h-14 w-14 bg-brand-accent text-black font-extrabold flex items-center justify-center rounded-2xl font-display text-2xl shadow-[0_0_25px_rgba(245,158,11,0.3)] mb-4 animate-pulse">
-            KE
-          </div>
+          <img
+            src="/kelectric.png"
+            alt="KElectric Logo"
+            className="h-16 w-auto mb-4 drop-shadow-[0_0_20px_rgba(245,158,11,0.3)]"
+          />
           <h2 className="text-xl font-bold tracking-tight text-white font-display uppercase">
-            KE Enterprise PTW Portal
+            KElectric
           </h2>
           <p className="text-gray-400 text-xs mt-1 max-w-xs font-mono uppercase tracking-wider">
-            Utility Safety & Authorization Gateway
+            Utility Safety &amp; Authorization Gateway
           </p>
         </div>
 

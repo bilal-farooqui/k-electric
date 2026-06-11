@@ -21,22 +21,28 @@ export const LineIsolation: React.FC<FormProps> = ({ permits, onSetPermits, curr
   const [status, setStatus] = useState<'draft' | 'pending' | 'approved' | 'rejected'>('draft');
 
   // Form State
-  const [feederName, setFeederName] = useState('Feeder Clifton 11kV - B');
-  const [voltage, setVoltage] = useState('11 kV');
-  const [isolatingSubstation, setIsolatingSubstation] = useState('Clifton Grid Station');
-  const [requestSection, setRequestSection] = useState('Distribution Operations Division');
+  const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
+  const [isolatingSubstation, setIsolatingSubstation] = useState('');
+  const [feederName, setFeederName] = useState('');
   
   const [checklist, setChecklist] = useState<Record<string, boolean>>({
-    breakerOff: false,
-    breakerRacked: false,
-    isolatorOpen: false,
-    redTagPlaced: false,
-    earthSwitchClosed: false,
-    dischargeVerified: false,
+    breakerOpened: false,
+    rmuIsolated: false,
+    lotoApplied: false,
+    earthApplied: false,
+    voltageTested: false,
   });
+
+  const [isolationDoneBy, setIsolationDoneBy] = useState('');
+  const [verifiedBy, setVerifiedBy] = useState('');
+  const [zeroVoltageConfirmed, setZeroVoltageConfirmed] = useState(false);
+  const [groundingCompleted, setGroundingCompleted] = useState(false);
+  const [reEnergizationTime, setReEnergizationTime] = useState('');
+  const [authorizedBy, setAuthorizedBy] = useState('');
 
   const [issuerSig, setIssuerSig] = useState('');
   const [receiverSig, setReceiverSig] = useState('');
+  const [authorizerSig, setAuthorizerSig] = useState('');
 
   useEffect(() => {
     const existing = editId ? permits.find((p) => p.id === editId) : null;
@@ -45,31 +51,42 @@ export const LineIsolation: React.FC<FormProps> = ({ permits, onSetPermits, curr
       setStatus(existing.status);
       const data = existing.formData;
       if (data) {
+        setDate(data.date || '');
         setFeederName(data.feederName || '');
-        setVoltage(data.voltage || '11 kV');
         setIsolatingSubstation(data.isolatingSubstation || '');
-        setRequestSection(data.requestSection || '');
         setChecklist(data.checklist || {});
+        setIsolationDoneBy(data.isolationDoneBy || '');
+        setVerifiedBy(data.verifiedBy || '');
+        setZeroVoltageConfirmed(!!data.zeroVoltageConfirmed);
+        setGroundingCompleted(!!data.groundingCompleted);
+        setReEnergizationTime(data.reEnergizationTime || '');
+        setAuthorizedBy(data.authorizedBy || '');
         setIssuerSig(data.issuerSig || '');
         setReceiverSig(data.receiverSig || '');
+        setAuthorizerSig(data.authorizerSig || '');
       }
     } else {
       setPermitId(`KE-LI-${Math.floor(100000 + Math.random() * 900000)}`);
       setStatus('draft');
-      setFeederName('Feeder Clifton 11kV - B');
-      setVoltage('11 kV');
-      setIsolatingSubstation('Clifton Grid Station');
-      setRequestSection('Distribution Operations Division');
+      setDate(new Date().toISOString().split('T')[0]);
+      setFeederName('');
+      setIsolatingSubstation('');
       setChecklist({
-        breakerOff: false,
-        breakerRacked: false,
-        isolatorOpen: false,
-        redTagPlaced: false,
-        earthSwitchClosed: false,
-        dischargeVerified: false,
+        breakerOpened: false,
+        rmuIsolated: false,
+        lotoApplied: false,
+        earthApplied: false,
+        voltageTested: false,
       });
+      setIsolationDoneBy('');
+      setVerifiedBy('');
+      setZeroVoltageConfirmed(false);
+      setGroundingCompleted(false);
+      setReEnergizationTime('');
+      setAuthorizedBy('');
       setIssuerSig('');
       setReceiverSig('');
+      setAuthorizerSig('');
     }
   }, [permits, editId, currentUser]);
 
@@ -81,18 +98,24 @@ export const LineIsolation: React.FC<FormProps> = ({ permits, onSetPermits, curr
     const newPermit: Permit = {
       id: permitId,
       type: 'line-isolation',
-      title: 'Line Isolation PTW',
+      title: '6. LINE ISOLATION PTW',
       status: 'draft',
       createdAt: new Date().toLocaleString(),
-      submittedBy: currentUser?.name || 'Grid Isolation Engineer',
+      submittedBy: isolationDoneBy || currentUser?.name || 'Operator',
       formData: {
+        date,
         feederName,
-        voltage,
         isolatingSubstation,
-        requestSection,
         checklist,
+        isolationDoneBy,
+        verifiedBy,
+        zeroVoltageConfirmed,
+        groundingCompleted,
+        reEnergizationTime,
+        authorizedBy,
         issuerSig,
         receiverSig,
+        authorizerSig,
       },
     };
 
@@ -114,35 +137,41 @@ export const LineIsolation: React.FC<FormProps> = ({ permits, onSetPermits, curr
     e.preventDefault();
 
     if (!feederName || !isolatingSubstation) {
-      alert('Please fill out feeder and grid station parameters.');
+      alert('Please fill out Substation Name and Feeder Name.');
       return;
     }
 
     if (!issuerSig || !receiverSig) {
-      alert('BOTH Control Room Issuer AND Site Receiver signatures are required for isolation authorization.');
+      alert('Signatures for both Isolation Done By and Verified By are required.');
       return;
     }
 
     const allChecked = Object.values(checklist).every((val) => val === true);
-    const finalStatus = allChecked ? 'approved' : 'pending';
+    const finalStatus = (allChecked && zeroVoltageConfirmed && groundingCompleted) ? 'approved' : 'pending';
 
     const newPermit: Permit = {
       id: permitId,
       type: 'line-isolation',
-      title: 'Line Isolation PTW',
+      title: '6. LINE ISOLATION PTW',
       status: finalStatus,
       createdAt: new Date().toLocaleString(),
-      submittedBy: currentUser?.name || 'Grid Isolation Engineer',
-      approvedBy: finalStatus === 'approved' ? 'Control Room Supervisor' : undefined,
+      submittedBy: isolationDoneBy || currentUser?.name || 'Operator',
+      approvedBy: finalStatus === 'approved' ? 'Control Room Self-Verification' : undefined,
       approvedAt: finalStatus === 'approved' ? new Date().toLocaleString() : undefined,
       formData: {
+        date,
         feederName,
-        voltage,
         isolatingSubstation,
-        requestSection,
         checklist,
+        isolationDoneBy,
+        verifiedBy,
+        zeroVoltageConfirmed,
+        groundingCompleted,
+        reEnergizationTime,
+        authorizedBy,
         issuerSig,
         receiverSig,
+        authorizerSig,
       },
     };
 
@@ -159,9 +188,9 @@ export const LineIsolation: React.FC<FormProps> = ({ permits, onSetPermits, curr
     localStorage.setItem('ke_ptw_permits', JSON.stringify(updated));
     setStatus(finalStatus);
     alert(
-      allChecked
-        ? 'Line Isolation authorized! Feeder has been safely de-energized.'
-        : 'Warning: Not all electrical isolation controls were verified. Marked as Pending.'
+      finalStatus === 'approved'
+        ? 'Line Isolation permit authorized!'
+        : 'Permit submitted. Awaiting complete safety confirmation and approvals.'
     );
     navigate('/');
   };
@@ -172,7 +201,7 @@ export const LineIsolation: React.FC<FormProps> = ({ permits, onSetPermits, curr
     const updatedPermit: Permit = {
       ...existing,
       status: 'approved',
-      approvedBy: `${currentUser?.name || 'Admin'} (${currentUser?.role || 'Safety Officer'})`,
+      approvedBy: `${currentUser?.name || 'Safety Officer'} (${currentUser?.role || 'Safety Officer'})`,
       approvedAt: new Date().toLocaleString(),
     };
     const index = permits.findIndex((p) => p.id === permitId);
@@ -209,99 +238,99 @@ export const LineIsolation: React.FC<FormProps> = ({ permits, onSetPermits, curr
   };
 
   const items = [
-    { key: 'breakerOff', label: 'Circuit Breaker Switched OFF', tooltip: 'Turn off the main oil/vacuum circuit breaker in the switchgear panel.' },
-    { key: 'breakerRacked', label: 'Breaker Racked Out (Disconnected)', tooltip: 'Physically rack out the breaker unit to create a visible air gap disconnection.' },
-    { key: 'isolatorOpen', label: 'Isolator Switch Open & Padlocked', tooltip: 'Open the line isolator and apply LOTO (Lockout Tagout) padlocks.' },
-    { key: 'redTagPlaced', label: 'Danger Board / Red Tag Applied', tooltip: 'Hang a Red Tag reading: "DO NOT OPERATE - WORKERS ON LINE".' },
-    { key: 'earthSwitchClosed', label: 'Earth Switch Closed / Ground Applied', tooltip: 'Close the earthing switch or connect a portable ground copper lead to earth.' },
-    { key: 'dischargeVerified', label: 'Tested Dead (Voltage Checked)', tooltip: 'Use a high-voltage detection stick to verify zero residual line charge.' },
+    { key: 'breakerOpened', label: 'Circuit Breaker Opened', tooltip: 'Verify main breaker has been switched off.' },
+    { key: 'rmuIsolated', label: 'RMU Isolated', tooltip: 'Verify Ring Main Unit switches have been isolated.' },
+    { key: 'lotoApplied', label: 'LOTO Applied', tooltip: 'Verify Lockout/Tagout tags and padlocks are in place.' },
+    { key: 'earthApplied', label: 'Earth Applied', tooltip: 'Verify earthing connections are closed/applied.' },
+    { key: 'voltageTested', label: 'Voltage Tested', tooltip: 'Verify lines are tested dead with a voltage detector.' },
   ];
 
-  const isDisabled = status === 'approved' || status === 'rejected' || (currentUser?.role === 'Principal Safety Officer' && status === 'pending');
+  const isAdmin = currentUser?.label === 'admin';
+  const isAuthorizerDisabled = status === 'approved' || status === 'rejected' || !isAdmin;
+  const isDisabled = status === 'approved' || status === 'rejected' || (isAdmin && status === 'pending');
 
   return (
     <FormWrapper
-      title="High-Voltage Electrical Isolation Permit"
+      title="6. LINE ISOLATION PTW"
       code={formCode}
       permitId={permitId}
       status={status}
       onSaveDraft={handleSaveDraft}
       onSubmit={handleSubmit}
-      isAdmin={currentUser?.role === 'Principal Safety Officer'}
+      isAdmin={isAdmin}
       onApprove={handleApprove}
       onReject={handleReject}
     >
-      {/* SECTION 1: METADATA */}
+      {/* SECTION 1: MAIN DETAILS */}
       <div className="space-y-4">
         <h3 className="text-xs font-bold text-brand-navy tracking-wider uppercase border-b border-gray-150 pb-2">
-          I. Scope of Electrical Isolation
+          MAIN DETAILS
         </h3>
         
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
           <div>
-            <label className="text-xs font-bold text-gray-550 block mb-1">FEEDER / CIRCUIT ID</label>
+            <label className="text-xs font-bold text-gray-550 block mb-1">Isolation Permit No</label>
+            <div className="w-full bg-gray-55 border border-gray-300 rounded-lg px-3 py-2 text-sm font-semibold text-gray-700 h-[38px] flex items-center">
+              {permitId}
+            </div>
+          </div>
+
+          <div>
+            <label className="text-xs font-bold text-gray-550 block mb-1">Date</label>
             <input
-              type="text"
-              value={feederName}
-              onChange={(e) => setFeederName(e.target.value)}
-              className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-brand-orange"
+              type="date"
+              required
+              value={date}
+              onChange={(e) => setDate(e.target.value)}
+              className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-brand-orange text-gray-700 font-medium disabled:bg-gray-55"
               disabled={isDisabled}
             />
           </div>
 
           <div>
-            <label className="text-xs font-bold text-gray-550 block mb-1">VOLTAGE RATING</label>
-            <select
-              value={voltage}
-              onChange={(e) => setVoltage(e.target.value)}
-              className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-brand-orange"
-              disabled={isDisabled}
-            >
-              <option>11 kV</option>
-              <option>33 kV</option>
-              <option>132 kV</option>
-              <option>400 V LT</option>
-            </select>
-          </div>
-
-          <div>
-            <label className="text-xs font-bold text-gray-550 block mb-1">ISOLATING GRID SUBSTATION</label>
+            <label className="text-xs font-bold text-gray-550 block mb-1">Substation Name</label>
             <input
               type="text"
+              required
               value={isolatingSubstation}
               onChange={(e) => setIsolatingSubstation(e.target.value)}
-              className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-brand-orange"
+              placeholder="e.g. Clifton Grid Station"
+              className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-brand-orange text-gray-700 font-medium disabled:bg-gray-55"
               disabled={isDisabled}
             />
           </div>
 
           <div>
-            <label className="text-xs font-bold text-gray-550 block mb-1">REQUESTING OPERATIONS SECTION</label>
+            <label className="text-xs font-bold text-gray-550 block mb-1">Feeder Name</label>
             <input
               type="text"
-              value={requestSection}
-              onChange={(e) => setRequestSection(e.target.value)}
-              className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-brand-orange"
+              required
+              value={feederName}
+              onChange={(e) => setFeederName(e.target.value)}
+              placeholder="e.g. Feeder Clifton 11kV"
+              className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-brand-orange text-gray-700 font-medium disabled:bg-gray-55"
               disabled={isDisabled}
             />
           </div>
         </div>
       </div>
 
-      {/* SECTION 2: ISOLATION PROTOCOLS */}
+      <hr className="border-t-2 border-brand-primary/20 my-6" />
+
+      {/* SECTION 2: ISOLATION INFORMATION */}
       <div className="space-y-4">
         <h3 className="text-xs font-bold text-brand-navy tracking-wider uppercase border-b border-gray-150 pb-2">
-          II. Safety Isolation checklist (LOTO)
+          ISOLATION INFORMATION
         </h3>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {items.map((item) => (
             <div 
               key={item.key} 
-              className="bg-white border border-gray-250 p-4.5 rounded-xl shadow-xs flex justify-between items-center hover:border-gray-350 transition-colors"
+              className="bg-white border border-gray-250 p-4 rounded-xl shadow-xs flex justify-between items-center hover:border-gray-350 transition-colors"
             >
               <div className="flex items-center gap-2">
-                <span className="text-sm font-semibold text-brand-navy">{item.label}</span>
+                <span className="text-xs font-bold text-brand-navy">{item.label}</span>
                 <Tooltip content={item.tooltip} />
               </div>
 
@@ -309,41 +338,170 @@ export const LineIsolation: React.FC<FormProps> = ({ permits, onSetPermits, curr
                 type="button"
                 onClick={() => toggleCheck(item.key)}
                 disabled={isDisabled}
-                className={`px-4 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
                   checklist[item.key]
                     ? 'bg-emerald-600 border border-emerald-700 text-white shadow-sm'
                     : 'bg-gray-105 border border-gray-300 text-gray-650 hover:bg-gray-200'
                 }`}
               >
-                {checklist[item.key] ? 'Isolated' : 'Open / Energized'}
+                {checklist[item.key] ? 'Yes' : 'No'}
               </button>
             </div>
           ))}
         </div>
       </div>
 
-      {/* SECTION 3: DUAL SIGN-OFF */}
+      <hr className="border-t-2 border-brand-primary/20 my-6" />
+
+      {/* SECTION 3: TEAM DETAILS */}
       <div className="space-y-4">
         <h3 className="text-xs font-bold text-brand-navy tracking-wider uppercase border-b border-gray-150 pb-2">
-          III. Isolation Issuance & Receipt Authorization
+          TEAM DETAILS
         </h3>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <SignaturePad
-            label="1. PERMIT ISSUER (CONTROL ROOM)"
-            role="Control Room Isolation Officer"
-            onSign={setIssuerSig}
-            savedSignature={issuerSig}
-            disabled={isDisabled}
-          />
+          <div className="space-y-3 bg-white border border-gray-200 rounded-2xl p-5 shadow-xs">
+            <div>
+              <label className="text-xs font-bold text-gray-550 block mb-1">Isolation Done By</label>
+              <input
+                type="text"
+                required
+                value={isolationDoneBy}
+                onChange={(e) => setIsolationDoneBy(e.target.value)}
+                placeholder="Name of Operator"
+                className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-brand-orange text-gray-700 font-medium disabled:bg-gray-55"
+                disabled={isDisabled}
+              />
+            </div>
+            <SignaturePad
+              label="Signature of Operator"
+              role="Isolation Done By"
+              onSign={setIssuerSig}
+              savedSignature={issuerSig}
+              disabled={isDisabled}
+            />
+          </div>
 
-          <SignaturePad
-            label="2. PERMIT RECEIVER (SITE WORK)"
-            role="Site Crew Leader / Lineman"
-            onSign={setReceiverSig}
-            savedSignature={receiverSig}
+          <div className="space-y-3 bg-white border border-gray-200 rounded-2xl p-5 shadow-xs">
+            <div>
+              <label className="text-xs font-bold text-gray-550 block mb-1">Verified By</label>
+              <input
+                type="text"
+                required
+                value={verifiedBy}
+                onChange={(e) => setVerifiedBy(e.target.value)}
+                placeholder="Name of Verifier"
+                className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-brand-orange text-gray-700 font-medium disabled:bg-gray-55"
+                disabled={isDisabled}
+              />
+            </div>
+            <SignaturePad
+              label="Signature of Verifier"
+              role="Verified By"
+              onSign={setReceiverSig}
+              savedSignature={receiverSig}
+              disabled={isDisabled}
+            />
+          </div>
+        </div>
+      </div>
+
+      <hr className="border-t-2 border-brand-primary/20 my-6" />
+
+      {/* SECTION 4: SAFETY CONFIRMATION */}
+      <div className="space-y-4">
+        <h3 className="text-xs font-bold text-brand-navy tracking-wider uppercase border-b border-gray-150 pb-2">
+          SAFETY CONFIRMATION
+        </h3>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <button
+            type="button"
+            onClick={() => setZeroVoltageConfirmed(!zeroVoltageConfirmed)}
             disabled={isDisabled}
-          />
+            className={`p-4 border rounded-xl text-left text-xs font-bold transition-all cursor-pointer flex items-center justify-between ${
+              zeroVoltageConfirmed
+                ? 'bg-emerald-50 border-emerald-500 text-emerald-800 shadow-xs'
+                : 'bg-white border-gray-250 text-gray-700 hover:border-gray-350'
+            }`}
+          >
+            <span className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                checked={zeroVoltageConfirmed}
+                readOnly
+                className="accent-emerald-600"
+              />
+              Zero Voltage Confirmed
+            </span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setGroundingCompleted(!groundingCompleted)}
+            disabled={isDisabled}
+            className={`p-4 border rounded-xl text-left text-xs font-bold transition-all cursor-pointer flex items-center justify-between ${
+              groundingCompleted
+                ? 'bg-emerald-50 border-emerald-500 text-emerald-800 shadow-xs'
+                : 'bg-white border-gray-250 text-gray-700 hover:border-gray-350'
+            }`}
+          >
+            <span className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                checked={groundingCompleted}
+                readOnly
+                className="accent-emerald-600"
+              />
+              Grounding Completed
+            </span>
+          </button>
+        </div>
+      </div>
+
+      <hr className="border-t-2 border-brand-primary/20 my-6" />
+
+      {/* SECTION 5: RESTORATION */}
+      <div className="space-y-4">
+        <h3 className="text-xs font-bold text-brand-navy tracking-wider uppercase border-b border-gray-150 pb-2">
+          RESTORATION
+        </h3>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+          <div>
+            <label className="text-xs font-bold text-gray-550 block mb-1">Re-Energization Time</label>
+            <input
+              type="text"
+              required
+              value={reEnergizationTime}
+              onChange={(e) => setReEnergizationTime(e.target.value)}
+              placeholder="e.g. 15:45 or 4:30 PM"
+              className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-brand-orange text-gray-700 font-medium disabled:bg-gray-55"
+              disabled={isAuthorizerDisabled}
+            />
+          </div>
+
+          <div className="space-y-3 bg-white border border-gray-200 rounded-2xl p-5 shadow-xs">
+            <div>
+              <label className="text-xs font-bold text-gray-550 block mb-1">Authorized By</label>
+              <input
+                type="text"
+                required
+                value={authorizedBy}
+                onChange={(e) => setAuthorizedBy(e.target.value)}
+                placeholder="Name of Safety Supervisor"
+                className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-brand-orange text-gray-700 font-medium disabled:bg-gray-55"
+                disabled={isAuthorizerDisabled}
+              />
+            </div>
+            <SignaturePad
+              label="Signature of Supervisor"
+              role="Authorized By"
+              onSign={setAuthorizerSig}
+              savedSignature={authorizerSig}
+              disabled={isAuthorizerDisabled}
+            />
+          </div>
         </div>
       </div>
     </FormWrapper>

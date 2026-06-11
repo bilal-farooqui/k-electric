@@ -10,8 +10,10 @@ import {
   FileSpreadsheet,
   Users,
   UserCheck,
-  UserX
+  UserX,
+  Trash2
 } from 'lucide-react';
+
 import type { Permit, UserProfile } from '../types/ptw';
 
 interface OverviewProps {
@@ -24,6 +26,8 @@ export const Overview: React.FC<OverviewProps> = ({ permits, onSetPermits, curre
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<'permits' | 'users'>('permits');
   const [usersList, setUsersList] = useState<UserProfile[]>([]);
+  const [userToDelete, setUserToDelete] = useState<string | null>(null);
+
   const [stats, setStats] = useState({
     total: 0,
     approved: 0,
@@ -126,6 +130,34 @@ export const Overview: React.FC<OverviewProps> = ({ permits, onSetPermits, curre
       alert('Error updating user clearance: Failed to synchronize with database.');
     }
   };
+
+  const handleDeleteUser = (username: string) => {
+    setUserToDelete(username);
+  };
+
+  const confirmDeleteUser = async () => {
+    if (!userToDelete) return;
+    const username = userToDelete;
+    setUserToDelete(null);
+
+    try {
+      const res = await fetch(`/api/users/${username}`, {
+        method: 'DELETE',
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || 'Failed to delete user');
+      }
+
+      setUsersList((prev) => prev.filter((u) => u.username !== username));
+      alert('User profile deleted successfully.');
+    } catch (err: any) {
+      console.error(err);
+      alert(`Error deleting user: ${err.message}`);
+    }
+  };
+
+
 
   const getFormName = (type: string) => {
     const item = ptwForms.find((f) => f.path.includes(type));
@@ -409,7 +441,7 @@ export const Overview: React.FC<OverviewProps> = ({ permits, onSetPermits, curre
                           {isUserAdmin ? 'Lvl 4 Admin' : 'Lvl 2 Operator'}
                         </span>
                       </td>
-                      <td className="px-5 py-3.5 text-right">
+                      <td className="px-5 py-3.5 text-right whitespace-nowrap">
                         <button
                           onClick={() => handleToggleUserLabel(user.username, user.label)}
                           disabled={user.username === currentUser?.username}
@@ -430,7 +462,17 @@ export const Overview: React.FC<OverviewProps> = ({ permits, onSetPermits, curre
                             </>
                           )}
                         </button>
+
+                        <button
+                          onClick={() => handleDeleteUser(user.username)}
+                          disabled={user.username === currentUser?.username}
+                          className="text-[10px] px-3 py-1.5 rounded-lg font-bold transition-all inline-flex items-center gap-1.5 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed shadow-xs bg-red-600 hover:bg-red-750 text-white border border-red-700 ml-2"
+                          title={user.username === currentUser?.username ? 'You cannot delete your own account' : 'Delete user profile'}
+                        >
+                          <Trash2 className="h-3 w-3" /> Delete User
+                        </button>
                       </td>
+
                     </tr>
                   );
                 })}
@@ -446,6 +488,39 @@ export const Overview: React.FC<OverviewProps> = ({ permits, onSetPermits, curre
           </div>
         </div>
       )}
+      {/* Custom Confirmation Modal */}
+      {userToDelete && (
+        <div className="fixed inset-0 z-9999 flex items-center justify-center bg-black/60 backdrop-blur-xs animate-fade-in p-4 font-sans">
+          <div className="bg-gray-900 border border-gray-800 rounded-3xl p-6 shadow-2xl max-w-sm w-full transform scale-100 transition-all animate-scale-up">
+            <div className="flex flex-col items-center text-center">
+              <div className="h-12 w-12 bg-red-500/10 border border-red-500/20 rounded-2xl flex items-center justify-center mb-4 text-red-500">
+                <AlertTriangle className="h-6 w-6" />
+              </div>
+              <h3 className="text-base font-bold text-white uppercase tracking-wider font-display">
+                Confirm Profile Deletion
+              </h3>
+              <p className="text-gray-400 text-xs mt-2 leading-relaxed">
+                Are you sure you want to permanently delete the user account <strong className="text-white">"{userToDelete}"</strong>? This action is irreversible.
+              </p>
+            </div>
+            <div className="flex gap-3 mt-6">
+              <button
+                onClick={() => setUserToDelete(null)}
+                className="flex-1 bg-gray-805 hover:bg-gray-800 text-white py-2.5 rounded-xl text-xs font-bold transition-all border border-gray-700 cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmDeleteUser}
+                className="flex-1 bg-red-650 hover:bg-red-700 text-white py-2.5 rounded-xl text-xs font-bold transition-all border border-red-700 cursor-pointer"
+              >
+                Confirm Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
+
