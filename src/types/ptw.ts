@@ -1,4 +1,4 @@
-export type PermitStatus = 'draft' | 'pending' | 'approved' | 'rejected';
+export type PermitStatus = 'DRAFT' | 'PENDING_APPROVAL' | 'APPROVED' | 'REJECTED';
 
 export type PermitType =
   | 'vehicle-inspection'

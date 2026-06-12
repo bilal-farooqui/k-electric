@@ -18,11 +18,10 @@ import type { Permit, UserProfile } from '../types/ptw';
 
 interface OverviewProps {
   permits: Permit[];
-  onSetPermits: React.Dispatch<React.SetStateAction<Permit[]>>;
   currentUser?: UserProfile | null;
 }
 
-export const Overview: React.FC<OverviewProps> = ({ permits, onSetPermits, currentUser }) => {
+export const Overview: React.FC<OverviewProps> = ({ permits, currentUser }) => {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<'permits' | 'users'>('permits');
   const [usersList, setUsersList] = useState<UserProfile[]>([]);
@@ -39,10 +38,10 @@ export const Overview: React.FC<OverviewProps> = ({ permits, onSetPermits, curre
   // Calculate statistics
   useEffect(() => {
     const total = permits.length;
-    const approved = permits.filter((p) => p.status === 'approved').length;
-    const pending = permits.filter((p) => p.status === 'pending').length;
-    const draft = permits.filter((p) => p.status === 'draft').length;
-    const rejected = permits.filter((p) => p.status === 'rejected').length;
+    const approved = permits.filter((p) => p.status === 'APPROVED').length;
+    const pending = permits.filter((p) => p.status === 'PENDING_APPROVAL').length;
+    const draft = permits.filter((p) => p.status === 'DRAFT').length;
+    const rejected = permits.filter((p) => p.status === 'REJECTED').length;
 
     setStats({
       total,
@@ -82,36 +81,6 @@ export const Overview: React.FC<OverviewProps> = ({ permits, onSetPermits, curre
     { name: 'Heat Shrink PTW', path: '/heat-shrink', code: 'KE-PTW-HS-09' },
   ];
 
-  const handleApprove = (id: string) => {
-    const updated = permits.map((p) => {
-      if (p.id === id) {
-        return {
-          ...p,
-          status: 'approved' as const,
-          approvedBy: currentUser ? `${currentUser.name} (${currentUser.role})` : 'Maheen Mahad (Principal Safety Engineer)',
-          approvedAt: new Date().toLocaleString(),
-        };
-      }
-      return p;
-    });
-    onSetPermits(updated);
-    localStorage.setItem('ke_ptw_permits', JSON.stringify(updated));
-  };
-
-  const handleReject = (id: string) => {
-    const updated = permits.map((p) => {
-      if (p.id === id) {
-        return {
-          ...p,
-          status: 'rejected' as const,
-        };
-      }
-      return p;
-    });
-    onSetPermits(updated);
-    localStorage.setItem('ke_ptw_permits', JSON.stringify(updated));
-  };
-
   const handleToggleUserLabel = async (username: string, currentLabel: 'admin' | 'employee') => {
     const nextLabel = currentLabel === 'admin' ? 'employee' : 'admin';
     try {
@@ -127,7 +96,7 @@ export const Overview: React.FC<OverviewProps> = ({ permits, onSetPermits, curre
       );
     } catch (err) {
       console.error(err);
-      alert('Error updating user clearance: Failed to synchronize with database.');
+      alert('Error updating user clearance. Please try again.');
     }
   };
 
@@ -169,10 +138,10 @@ export const Overview: React.FC<OverviewProps> = ({ permits, onSetPermits, curre
       {/* Page Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-gray-200 pb-4">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-brand-navy font-display uppercase">
-            KE Safety & Control Administration
+          <h1 className="text-2xl font-bold tracking-tight text-brand-navy font-display">
+            Safety & Control Administration
           </h1>
-          <p className="text-gray-500 text-sm mt-0.5">
+          <p className="text-gray-600 text-sm mt-0.5">
             Real-time safety checks, authorization statuses, and user clearance governance.
           </p>
         </div>
@@ -184,7 +153,7 @@ export const Overview: React.FC<OverviewProps> = ({ permits, onSetPermits, curre
             className={`px-4 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
               activeTab === 'permits'
                 ? 'bg-brand-navy text-white shadow'
-                : 'text-gray-500 hover:text-gray-700'
+                : 'text-gray-600 hover:text-gray-800'
             }`}
           >
             <FileSpreadsheet className="h-3.5 w-3.5" /> Permit Dashboard
@@ -194,7 +163,7 @@ export const Overview: React.FC<OverviewProps> = ({ permits, onSetPermits, curre
             className={`px-4 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
               activeTab === 'users'
                 ? 'bg-brand-navy text-white shadow'
-                : 'text-gray-500 hover:text-gray-700'
+                : 'text-gray-600 hover:text-gray-800'
             }`}
           >
             <Users className="h-3.5 w-3.5" /> User & Role Directory
@@ -208,17 +177,17 @@ export const Overview: React.FC<OverviewProps> = ({ permits, onSetPermits, curre
           <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
             <div className="bg-white p-5 rounded-2xl border border-gray-200 shadow-xs relative overflow-hidden flex flex-col justify-between h-28">
               <div>
-                <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest block">Total Permits</span>
+                <span className="text-[10px] font-bold text-gray-600 tracking-wider block">Total Permits</span>
                 <span className="text-2xl font-extrabold text-brand-navy mt-1 font-display block">{stats.total}</span>
               </div>
-              <div className="absolute right-4 top-4 bg-gray-50 p-2 rounded-xl text-gray-400">
+              <div className="absolute right-4 top-4 bg-gray-55 p-2 rounded-xl text-gray-500">
                 <FileSpreadsheet className="h-5 w-5" />
               </div>
             </div>
 
             <div className="bg-white p-5 rounded-2xl border border-gray-200 shadow-xs relative overflow-hidden flex flex-col justify-between h-28">
               <div>
-                <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest block font-sans">Active & Approved</span>
+                <span className="text-[10px] font-bold text-gray-600 tracking-wider block font-sans">Active & Approved</span>
                 <span className="text-2xl font-extrabold text-emerald-600 mt-1 font-display block">{stats.approved}</span>
               </div>
               <div className="absolute right-4 top-4 bg-emerald-50 p-2 rounded-xl text-emerald-500">
@@ -228,7 +197,7 @@ export const Overview: React.FC<OverviewProps> = ({ permits, onSetPermits, curre
 
             <div className="bg-white p-5 rounded-2xl border border-gray-200 shadow-xs relative overflow-hidden flex flex-col justify-between h-28">
               <div>
-                <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest block font-sans">Pending Sign-off</span>
+                <span className="text-[10px] font-bold text-gray-600 tracking-wider block font-sans">Pending Sign-off</span>
                 <span className="text-2xl font-extrabold text-amber-500 mt-1 font-display block">{stats.pending}</span>
               </div>
               <div className="absolute right-4 top-4 bg-amber-50 p-2 rounded-xl text-amber-500">
@@ -238,17 +207,17 @@ export const Overview: React.FC<OverviewProps> = ({ permits, onSetPermits, curre
 
             <div className="bg-white p-5 rounded-2xl border border-gray-200 shadow-xs relative overflow-hidden flex flex-col justify-between h-28">
               <div>
-                <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest block font-sans">Draft Permits</span>
-                <span className="text-2xl font-extrabold text-gray-500 mt-1 font-display block">{stats.draft}</span>
+                <span className="text-[10px] font-bold text-gray-600 tracking-wider block font-sans">Draft Permits</span>
+                <span className="text-2xl font-extrabold text-gray-600 mt-1 font-display block">{stats.draft}</span>
               </div>
-              <div className="absolute right-4 top-4 bg-gray-50 p-2 rounded-xl text-gray-500">
+              <div className="absolute right-4 top-4 bg-gray-55 p-2 rounded-xl text-gray-500">
                 <FileText className="h-5 w-5" />
               </div>
             </div>
 
             <div className="bg-white p-5 rounded-2xl border border-gray-200 shadow-xs relative overflow-hidden flex flex-col justify-between h-28 col-span-2 lg:col-span-1">
               <div>
-                <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest block font-sans">Failed Safety checks</span>
+                <span className="text-[10px] font-bold text-gray-600 tracking-wider block font-sans">Failed Safety Checks</span>
                 <span className="text-2xl font-extrabold text-red-650 mt-1 font-display block">{stats.failed}</span>
               </div>
               <div className="absolute right-4 top-4 bg-red-50 p-2 rounded-xl text-red-500">
@@ -260,22 +229,22 @@ export const Overview: React.FC<OverviewProps> = ({ permits, onSetPermits, curre
           {/* Main Grid: Performance charts */}
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
             <div className="bg-white border border-gray-200 rounded-2xl shadow-xs p-5 lg:col-span-12 flex flex-col justify-between">
-              <h2 className="text-sm font-bold text-brand-navy tracking-wider uppercase flex items-center gap-1.5 border-b border-gray-150 pb-2.5">
+              <h2 className="text-sm font-bold text-brand-navy tracking-wider flex items-center gap-1.5 border-b border-gray-150 pb-2.5">
                 <AlertTriangle className="h-4.5 w-4.5 text-brand-orange" /> Safety Permit Distribution
               </h2>
               
-              <div className="flex-1 flex flex-col justify-center items-center py-4">
+              <div className="flex-1 flex flex-col justify-center items-center py-4 w-full">
                 {permits.length === 0 ? (
-                  <div className="text-xs text-gray-400 italic">No permits generated yet to render statistics chart.</div>
+                  <div className="text-xs text-gray-500 italic">No permits generated yet to render statistics chart.</div>
                 ) : (
-                  <div className="w-full space-y-4">
+                  <div className="w-full max-w-xl mx-auto space-y-4">
                     {(['vehicle-inspection', 'tools-ppe', 'line-isolation', 'excavation'] as const).map((type) => {
                       const count = permits.filter((p) => p.type === type).length;
                       const pct = permits.length > 0 ? (count / permits.length) * 100 : 0;
                       const label = getFormName(type);
                       return (
                         <div key={type} className="space-y-1">
-                          <div className="flex justify-between text-[11px] font-bold text-gray-650">
+                          <div className="flex justify-between text-[11px] font-bold text-gray-700">
                             <span>{label}</span>
                             <span className="font-mono text-brand-navy">{count} ({Math.round(pct)}%)</span>
                           </div>
@@ -293,6 +262,7 @@ export const Overview: React.FC<OverviewProps> = ({ permits, onSetPermits, curre
                   </div>
                 )}
               </div>
+
               
               <div className="bg-gray-50 p-3 rounded-xl border border-gray-150 text-[10px] text-gray-500 leading-normal">
                 <strong>System Standard</strong>: Outages, excavation tasks, and tools checklists must be submitted and approved prior to team deployment.
@@ -303,23 +273,23 @@ export const Overview: React.FC<OverviewProps> = ({ permits, onSetPermits, curre
           {/* Active and Recent Permit Operations */}
           <div className="bg-white border border-gray-200 rounded-2xl shadow-xs overflow-hidden">
             <div className="px-5 py-4 border-b border-gray-200 flex justify-between items-center">
-              <h2 className="text-sm font-bold text-brand-navy tracking-wider uppercase font-display">
+              <h2 className="text-sm font-bold text-brand-navy tracking-wider font-display">
                 Recent Permit Operations
               </h2>
-              <span className="bg-gray-100 border border-gray-200 text-gray-600 px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold">
+              <span className="bg-gray-150 border border-gray-200 text-gray-700 px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold">
                 {permits.length} Records
               </span>
             </div>
 
             {permits.length === 0 ? (
-              <div className="p-8 text-center text-xs text-gray-400 italic">
+              <div className="p-8 text-center text-xs text-gray-500 italic">
                 No permit reports currently created in the logs. Click a form above to submit your first permit.
               </div>
             ) : (
               <div className="overflow-x-auto">
                 <table className="w-full text-left border-collapse">
                   <thead>
-                    <tr className="bg-gray-50 text-[10px] font-bold text-gray-555 uppercase border-b border-gray-250 tracking-wider">
+                    <tr className="bg-gray-55 text-[10px] font-bold text-gray-700 border-b border-gray-250 tracking-wider">
                       <th className="px-5 py-3">Permit Ref</th>
                       <th className="px-5 py-3">Task Name</th>
                       <th className="px-5 py-3">Created By</th>
@@ -330,54 +300,53 @@ export const Overview: React.FC<OverviewProps> = ({ permits, onSetPermits, curre
                   </thead>
                   <tbody className="divide-y divide-gray-200 text-xs">
                     {permits.map((permit) => {
-                      const statusColors = {
+                      const statusColors: Record<string, string> = {
+                        DRAFT: 'bg-gray-100 text-gray-800 border-gray-305',
+                        PENDING_APPROVAL: 'bg-amber-100 text-amber-800 border-amber-305',
+                        APPROVED: 'bg-emerald-100 text-emerald-800 border-emerald-305',
+                        REJECTED: 'bg-red-100 text-red-800 border-red-305',
                         draft: 'bg-gray-100 text-gray-800 border-gray-305',
                         pending: 'bg-amber-100 text-amber-800 border-amber-305',
                         approved: 'bg-emerald-100 text-emerald-800 border-emerald-305',
                         rejected: 'bg-red-100 text-red-800 border-red-305',
                       };
 
+                      const displayStatus = (permit.status || '')
+                        .toUpperCase()
+                        .replace('PENDING_APPROVAL', 'PENDING REVIEW')
+                        .replace('_', ' ');
+
                       return (
                         <tr key={permit.id} className="hover:bg-gray-55/30 transition-colors">
                           <td className="px-5 py-3.5 font-mono font-bold text-brand-navy">{permit.id}</td>
                           <td className="px-5 py-3.5">
                             <div className="font-bold text-brand-navy">{getFormName(permit.type)}</div>
-                            <div className="text-[10px] text-gray-400 mt-0.5 font-semibold">Electrical Utility Division</div>
+                            <div className="text-[10px] text-gray-500 mt-0.5 font-semibold">Electrical Utility Division</div>
                           </td>
                           <td className="px-5 py-3.5">
                             <div className="font-semibold text-gray-700">{permit.submittedBy}</div>
-                            <div className="text-[10px] text-gray-450 font-semibold">Badge: Verified</div>
+                            <div className="text-[10px] text-gray-500 font-semibold">Badge: Verified</div>
                           </td>
-                          <td className="px-5 py-3.5 text-gray-500 font-mono">{permit.createdAt}</td>
+                          <td className="px-5 py-3.5 text-gray-600 font-mono">{permit.createdAt}</td>
                           <td className="px-5 py-3.5">
-                            <span className={`px-2.5 py-0.5 border text-[10px] font-bold rounded-full uppercase ${statusColors[permit.status]}`}>
-                              {permit.status}
+                            <span className={`px-2.5 py-0.5 border text-[10px] font-bold rounded-full ${statusColors[permit.status] || 'bg-gray-100 text-gray-800'}`}>
+                              {displayStatus}
                             </span>
                           </td>
-                          <td className="px-5 py-3.5 text-right space-x-1.5 whitespace-nowrap">
+                          <td className="px-5 py-3.5 text-right whitespace-nowrap">
                             <button
-                              onClick={() => navigate(ptwForms.find((f) => f.path.includes(permit.type))?.path || '/')}
+                              onClick={() => {
+                                const path = ptwForms.find((f) => f.path.includes(permit.type))?.path;
+                                if (path) {
+                                  navigate(`${path}?id=${permit.id}`);
+                                } else {
+                                  navigate('/');
+                                }
+                              }}
                               className="text-[10px] bg-white border border-gray-300 hover:bg-gray-55 text-gray-700 px-2.5 py-1 rounded-md font-bold transition-all inline-flex items-center gap-1 cursor-pointer shadow-xs"
                             >
                               View/Fill <ChevronRight className="h-3 w-3" />
                             </button>
-                            
-                            {permit.status === 'pending' && (
-                              <>
-                                <button
-                                  onClick={() => handleApprove(permit.id)}
-                                  className="text-[10px] bg-emerald-650 hover:bg-emerald-700 text-white px-2.5 py-1 rounded-md font-bold transition-all cursor-pointer shadow-xs"
-                                >
-                                  Approve
-                                </button>
-                                <button
-                                  onClick={() => handleReject(permit.id)}
-                                  className="text-[10px] bg-red-650 hover:bg-red-700 text-white px-2.5 py-1 rounded-md font-bold transition-all cursor-pointer shadow-xs"
-                                >
-                                  Reject
-                                </button>
-                              </>
-                            )}
                           </td>
                         </tr>
                       );
@@ -393,14 +362,14 @@ export const Overview: React.FC<OverviewProps> = ({ permits, onSetPermits, curre
         <div className="bg-white border border-gray-200 rounded-2xl shadow-xs overflow-hidden">
           <div className="px-5 py-4 border-b border-gray-200 flex justify-between items-center">
             <div>
-              <h2 className="text-sm font-bold text-brand-navy tracking-wider uppercase font-display">
+              <h2 className="text-sm font-bold text-brand-navy tracking-wider font-display">
                 User & System Access Directory
               </h2>
-              <p className="text-[11px] text-gray-400 mt-0.5 font-semibold">
+              <p className="text-[11px] text-gray-600 mt-0.5 font-semibold">
                 Manage K-Electric portal profiles and elevate account authorization levels.
               </p>
             </div>
-            <span className="bg-gray-100 border border-gray-200 text-gray-600 px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold">
+            <span className="bg-gray-150 border border-gray-250 text-gray-700 px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold">
               {usersList.length} Accounts Registered
             </span>
           </div>
@@ -408,7 +377,7 @@ export const Overview: React.FC<OverviewProps> = ({ permits, onSetPermits, curre
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse">
               <thead>
-                <tr className="bg-gray-55 text-[10px] font-bold text-gray-555 uppercase border-b border-gray-250 tracking-wider">
+                <tr className="bg-gray-55 text-[10px] font-bold text-gray-700 border-b border-gray-250 tracking-wider">
                   <th className="px-5 py-3">Employee Details</th>
                   <th className="px-5 py-3">Username</th>
                   <th className="px-5 py-3">Badge ID</th>
@@ -427,13 +396,13 @@ export const Overview: React.FC<OverviewProps> = ({ permits, onSetPermits, curre
                         </div>
                         <div>
                           <div className="font-bold text-brand-navy">{user.name}</div>
-                          <div className="text-[10px] text-gray-400 mt-0.5 font-semibold">{user.role}</div>
+                          <div className="text-[10px] text-gray-600 mt-0.5 font-semibold">{user.role}</div>
                         </div>
                       </td>
                       <td className="px-5 py-3.5 font-mono text-gray-600">{user.username}</td>
                       <td className="px-5 py-3.5 font-mono text-gray-600">{user.badgeId}</td>
                       <td className="px-5 py-3.5">
-                        <span className={`px-2.5 py-0.5 border text-[10px] font-bold rounded-full uppercase ${
+                        <span className={`px-2.5 py-0.5 border text-[10px] font-bold rounded-full ${
                           isUserAdmin 
                             ? 'bg-emerald-100 text-emerald-800 border-emerald-305' 
                             : 'bg-gray-100 text-gray-600 border-gray-305'
@@ -480,7 +449,7 @@ export const Overview: React.FC<OverviewProps> = ({ permits, onSetPermits, curre
             </table>
           </div>
           
-          <div className="bg-gray-50 p-4 border-t border-gray-200 text-[10px] text-gray-500 leading-normal flex items-start gap-2">
+          <div className="bg-gray-50 p-4 border-t border-gray-200 text-[10px] text-gray-600 leading-normal flex items-start gap-2">
             <ShieldAlert className="h-4 w-4 text-brand-orange shrink-0 mt-0.5" />
             <div>
               <strong>System Governance Protocol</strong>: Administrative clearance allows users to perform final safety approvals, view audit checklists, and modify operator roles. Do not grant admin level clearance unless personnel have completed Level 4 Safety Signatory certifications.
@@ -496,10 +465,10 @@ export const Overview: React.FC<OverviewProps> = ({ permits, onSetPermits, curre
               <div className="h-12 w-12 bg-red-500/10 border border-red-500/20 rounded-2xl flex items-center justify-center mb-4 text-red-500">
                 <AlertTriangle className="h-6 w-6" />
               </div>
-              <h3 className="text-base font-bold text-white uppercase tracking-wider font-display">
+              <h3 className="text-base font-bold text-white tracking-wider font-display">
                 Confirm Profile Deletion
               </h3>
-              <p className="text-gray-400 text-xs mt-2 leading-relaxed">
+              <p className="text-gray-300 text-xs mt-2 leading-relaxed">
                 Are you sure you want to permanently delete the user account <strong className="text-white">"{userToDelete}"</strong>? This action is irreversible.
               </p>
             </div>

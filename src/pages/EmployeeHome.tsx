@@ -97,19 +97,19 @@ export const EmployeeHome: React.FC<EmployeeHomeProps> = ({ currentUser }) => {
   ];
 
   return (
-    <div className="space-y-5 max-w-6xl mx-auto">
+    <div className="space-y-4 max-w-6xl mx-auto">
       {/* Compact Welcome Banner */}
-      <div className="relative overflow-hidden bg-brand-primary rounded-2xl px-6 py-4 text-white shadow-lg border border-gray-800 flex items-center justify-between gap-4">
+      <div className="relative overflow-hidden bg-brand-primary rounded-xl px-4 py-3 text-white shadow-md border border-gray-800 flex items-center justify-between gap-4">
         <div className="absolute top-0 right-0 w-64 h-full bg-brand-accent/5 rounded-full blur-3xl pointer-events-none" />
-        <div className="relative z-10 flex items-center gap-4">
-          <span className="bg-brand-accent/20 border border-brand-accent/30 text-brand-accent text-[10px] font-bold px-2.5 py-0.5 rounded-full uppercase tracking-wider shrink-0">
+        <div className="relative z-10 flex items-center gap-3.5">
+          <span className="bg-brand-accent/20 border border-brand-accent/30 text-brand-accent text-[9px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider shrink-0">
             Field Ops
           </span>
           <div>
-            <h1 className="text-base font-extrabold font-display tracking-tight leading-tight">
+            <h1 className="text-sm font-bold font-display tracking-tight leading-tight">
               Welcome back, {currentUser.name || 'Technician'}
             </h1>
-            <p className="text-gray-400 text-[11px] mt-0.5">
+            <p className="text-gray-300 text-[10px] mt-0.5">
               Complete and submit the operational checklists below to authorize utility tasks.
             </p>
           </div>
@@ -118,36 +118,36 @@ export const EmployeeHome: React.FC<EmployeeHomeProps> = ({ currentUser }) => {
 
       {/* Forms Grid section */}
       <div>
-        <div className="flex justify-between items-center mb-4">
+        <div className="flex justify-between items-center mb-3">
           <div>
-            <h2 className="text-sm font-bold text-brand-navy uppercase tracking-wide">
+            <h2 className="text-xs font-bold text-brand-navy tracking-wide">
               Active Permit-to-Work Forms
             </h2>
-            <p className="text-xs text-gray-500 mt-0.5">Select a safety category to open a blank sheet.</p>
+            <p className="text-[11px] text-gray-600 mt-0.5">Select a safety category to open a blank sheet.</p>
           </div>
-          <span className="bg-gray-100 text-gray-600 font-mono text-[10px] font-bold px-3 py-1 rounded-full border border-gray-200">
+          <span className="bg-gray-150 text-gray-700 font-mono text-[9px] font-bold px-2 py-0.5 rounded-full border border-gray-250">
             9 Forms
           </span>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
           {ptwForms.map((form, idx) => {
             const Icon = form.icon;
             return (
               <div
                 key={idx}
-                className="group bg-white border border-gray-200 hover:border-gray-300 rounded-xl p-4 shadow-xs hover:shadow-md transition-all duration-200 flex flex-col justify-between"
+                className="group bg-white border border-gray-255 hover:border-gray-350 rounded-xl p-3 shadow-xs hover:shadow-md transition-all duration-200 flex flex-col justify-between"
               >
-                <div className="flex items-start gap-3">
-                  <div className={`h-10 w-10 shrink-0 rounded-lg bg-linear-to-br ${form.color} text-white flex items-center justify-center shadow-sm group-hover:scale-105 transition-transform`}>
-                    <Icon className="h-5 w-5" />
+                <div className="flex items-start gap-2.5">
+                  <div className={`h-8.5 w-8.5 shrink-0 rounded-lg bg-linear-to-br ${form.color} text-white flex items-center justify-center shadow-xs group-hover:scale-105 transition-transform`}>
+                    <Icon className="h-4.5 w-4.5" />
                   </div>
                   <div className="min-w-0">
-                    <div className="text-[10px] font-mono text-gray-400 font-bold uppercase tracking-wider">{form.code}</div>
-                    <h3 className="text-sm font-bold text-brand-navy mt-0.5 group-hover:text-brand-orange transition-colors leading-snug">
+                    <div className="text-[9px] font-mono text-gray-500 font-bold uppercase tracking-wider">{form.code}</div>
+                    <h3 className="text-xs font-bold text-brand-navy mt-0.5 group-hover:text-brand-orange transition-colors leading-snug">
                       {form.name}
                     </h3>
-                    <p className="text-[11px] text-gray-500 mt-1.5 leading-relaxed">
+                    <p className="text-[10px] text-gray-600 mt-1 leading-relaxed">
                       {form.desc}
                     </p>
                   </div>
@@ -155,9 +155,9 @@ export const EmployeeHome: React.FC<EmployeeHomeProps> = ({ currentUser }) => {
 
                 <button
                   onClick={() => navigate(form.path)}
-                  className="mt-4 w-full flex items-center justify-center gap-1.5 bg-gray-50 hover:bg-brand-navy text-gray-700 hover:text-brand-accent border border-gray-200 hover:border-brand-navy px-3 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer"
+                  className="mt-3 w-full flex items-center justify-center gap-1 bg-gray-50 hover:bg-brand-navy text-gray-700 hover:text-brand-accent border border-gray-200 hover:border-brand-navy px-3 py-1.5 rounded-lg text-[11px] font-bold transition-all cursor-pointer"
                 >
-                  Start New Entry <ArrowRight className="h-3.5 w-3.5" />
+                  Start New Entry <ArrowRight className="h-3 w-3" />
                 </button>
               </div>
             );

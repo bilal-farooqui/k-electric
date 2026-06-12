@@ -65,10 +65,10 @@ export const Auth: React.FC<AuthProps> = ({ onLoginSuccess }) => {
             alt="KElectric Logo"
             className="h-16 w-auto mb-4 drop-shadow-[0_0_20px_rgba(245,158,11,0.3)]"
           />
-          <h2 className="text-xl font-bold tracking-tight text-white font-display uppercase">
+          <h2 className="text-xl font-bold tracking-tight text-white font-display">
             KElectric
           </h2>
-          <p className="text-gray-400 text-xs mt-1 max-w-xs font-mono uppercase tracking-wider">
+          <p className="text-gray-305 text-xs mt-1 max-w-xs font-mono tracking-wider">
             Utility Safety &amp; Authorization Gateway
           </p>
         </div>
@@ -81,7 +81,7 @@ export const Auth: React.FC<AuthProps> = ({ onLoginSuccess }) => {
               setError(null);
             }}
             className={`flex-1 flex items-center justify-center gap-2 py-2 text-xs font-bold rounded-lg transition-all cursor-pointer ${
-              isLogin ? 'bg-brand-accent text-black shadow-md' : 'text-gray-400 hover:text-white'
+              isLogin ? 'bg-brand-accent text-black shadow-md' : 'text-gray-300 hover:text-white'
             }`}
           >
             <LogIn className="h-3.5 w-3.5" /> Sign In
@@ -92,7 +92,7 @@ export const Auth: React.FC<AuthProps> = ({ onLoginSuccess }) => {
               setError(null);
             }}
             className={`flex-1 flex items-center justify-center gap-2 py-2 text-xs font-bold rounded-lg transition-all cursor-pointer ${
-              !isLogin ? 'bg-brand-accent text-black shadow-md' : 'text-gray-400 hover:text-white'
+              !isLogin ? 'bg-brand-accent text-black shadow-md' : 'text-gray-300 hover:text-white'
             }`}
           >
             <UserPlus className="h-3.5 w-3.5" /> Create Account
@@ -112,14 +112,14 @@ export const Auth: React.FC<AuthProps> = ({ onLoginSuccess }) => {
           
           {/* USERNAME */}
           <div>
-            <label className="text-[10px] font-bold text-gray-450 block mb-1 uppercase tracking-wider">Username</label>
+            <label className="text-[10px] font-bold text-gray-300 block mb-1 tracking-wider">Username</label>
             <div className="relative">
               <input
                 type="text"
                 required
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
-                className="w-full bg-black/30 border border-gray-800 focus:border-brand-accent text-white rounded-xl pl-10 pr-4 py-2.5 text-xs font-semibold outline-none transition-all placeholder-gray-600"
+                className="w-full bg-black/30 border border-gray-805 focus:border-brand-accent text-white rounded-xl pl-10 pr-4 py-2.5 text-xs font-semibold outline-none transition-all placeholder-gray-450"
                 placeholder="e.g. arifkhan"
               />
               <User className="absolute left-3.5 top-3 h-4 w-4 text-gray-500" />
@@ -128,21 +128,21 @@ export const Auth: React.FC<AuthProps> = ({ onLoginSuccess }) => {
 
           {/* PASSWORD */}
           <div>
-            <label className="text-[10px] font-bold text-gray-450 block mb-1 uppercase tracking-wider">Password</label>
+            <label className="text-[10px] font-bold text-gray-300 block mb-1 tracking-wider">Password</label>
             <div className="relative">
               <input
                 type={showPassword ? 'text' : 'password'}
                 required
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="w-full bg-black/30 border border-gray-800 focus:border-brand-accent text-white rounded-xl pl-10 pr-10 py-2.5 text-xs font-semibold outline-none transition-all placeholder-gray-600"
+                className="w-full bg-black/30 border border-gray-805 focus:border-brand-accent text-white rounded-xl pl-10 pr-10 py-2.5 text-xs font-semibold outline-none transition-all placeholder-gray-450"
                 placeholder="••••••••"
               />
-              <Key className="absolute left-3.5 top-3 h-4 w-4 text-gray-500" />
+              <Key className="absolute left-3.5 top-3 h-4 w-4 text-gray-505" />
               <button
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3.5 top-3 text-gray-500 hover:text-gray-400 focus:outline-none"
+                className="absolute right-3.5 top-3 text-gray-505 hover:text-gray-400 focus:outline-none"
               >
                 {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
               </button>
@@ -155,53 +155,52 @@ export const Auth: React.FC<AuthProps> = ({ onLoginSuccess }) => {
               
               {/* FULL NAME */}
               <div>
-                <label className="text-[10px] font-bold text-gray-450 block mb-1 uppercase tracking-wider">Full Name</label>
+                <label className="text-[10px] font-bold text-gray-300 block mb-1 tracking-wider">Full Name</label>
                 <div className="relative">
                   <input
                     type="text"
                     required
                     value={name}
                     onChange={(e) => setName(e.target.value)}
-                    className="w-full bg-black/30 border border-gray-800 focus:border-brand-accent text-white rounded-xl pl-10 pr-4 py-2.5 text-xs font-semibold outline-none transition-all placeholder-gray-600"
+                    className="w-full bg-black/30 border border-gray-805 focus:border-brand-accent text-white rounded-xl pl-10 pr-4 py-2.5 text-xs font-semibold outline-none transition-all placeholder-gray-455"
                     placeholder="e.g. Arif Khan"
                   />
-                  <User className="absolute left-3.5 top-3 h-4 w-4 text-gray-500" />
+                  <User className="absolute left-3.5 top-3 h-4 w-4 text-gray-505" />
                 </div>
               </div>
 
               {/* BADGE ID & JOB TITLE */}
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="text-[10px] font-bold text-gray-450 block mb-1 uppercase tracking-wider">Badge ID</label>
+                  <label className="text-[10px] font-bold text-gray-300 block mb-1 tracking-wider">Badge ID</label>
                   <div className="relative">
                     <input
                       type="text"
                       required
                       value={badgeId}
                       onChange={(e) => setBadgeId(e.target.value)}
-                      className="w-full bg-black/30 border border-gray-800 focus:border-brand-accent text-white rounded-xl pl-10 pr-4 py-2.5 text-xs font-semibold outline-none transition-all placeholder-gray-600"
+                      className="w-full bg-black/30 border border-gray-805 focus:border-brand-accent text-white rounded-xl pl-10 pr-4 py-2.5 text-xs font-semibold outline-none transition-all placeholder-gray-455"
                       placeholder="KE-XXXX"
                     />
-                    <Shield className="absolute left-3.5 top-3 h-4 w-4 text-gray-500" />
+                    <Shield className="absolute left-3.5 top-3 h-4 w-4 text-gray-505" />
                   </div>
                 </div>
 
                 <div>
-                  <label className="text-[10px] font-bold text-gray-450 block mb-1 uppercase tracking-wider">Job Role</label>
+                  <label className="text-[10px] font-bold text-gray-300 block mb-1 tracking-wider">Job Role</label>
                   <div className="relative">
                     <input
                       type="text"
                       required
                       value={role}
                       onChange={(e) => setRole(e.target.value)}
-                      className="w-full bg-black/30 border border-gray-800 focus:border-brand-accent text-white rounded-xl pl-10 pr-4 py-2.5 text-xs font-semibold outline-none transition-all placeholder-gray-600"
+                      className="w-full bg-black/30 border border-gray-805 focus:border-brand-accent text-white rounded-xl pl-10 pr-4 py-2.5 text-xs font-semibold outline-none transition-all placeholder-gray-455"
                       placeholder="e.g. Field Technician"
                     />
-                    <Award className="absolute left-3.5 top-3 h-4 w-4 text-gray-500" />
+                    <Award className="absolute left-3.5 top-3 h-4 w-4 text-gray-505" />
                   </div>
                 </div>
               </div>
-
 
             </div>
           )}
@@ -210,7 +209,7 @@ export const Auth: React.FC<AuthProps> = ({ onLoginSuccess }) => {
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-brand-accent hover:bg-amber-500 text-black py-3 rounded-xl text-xs font-extrabold uppercase tracking-wider shadow-lg shadow-brand-accent/15 transition-all mt-6 flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+            className="w-full bg-brand-accent hover:bg-amber-500 text-black py-3 rounded-xl text-xs font-extrabold shadow-lg shadow-brand-accent/15 transition-all mt-6 flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
           >
             {loading ? (
               <span className="h-4 w-4 border-2 border-black border-t-transparent rounded-full animate-spin" />
@@ -227,9 +226,9 @@ export const Auth: React.FC<AuthProps> = ({ onLoginSuccess }) => {
         </form>
 
         {/* System seed note */}
-        <div className="mt-6 text-center text-[10px] text-gray-550 border-t border-gray-800/60 pt-4 flex flex-col gap-1">
+        <div className="mt-6 text-center text-[10px] text-gray-400 border-t border-gray-800/60 pt-4 flex flex-col gap-1">
           <p className="font-mono">Default Testing Accounts:</p>
-          <div className="flex justify-center gap-4 text-gray-400 mt-1">
+          <div className="flex justify-center gap-4 text-gray-300 mt-1">
             <span>Admin: <strong>admin</strong> / <strong>admin123</strong></span>
             <span>Employee: <strong>employee</strong> / <strong>employee123</strong></span>
           </div>

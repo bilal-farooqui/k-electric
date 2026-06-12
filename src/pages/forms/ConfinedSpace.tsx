@@ -3,7 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { FormWrapper } from '../../components/FormWrapper';
 import { SignaturePad } from '../../components/SignaturePad';
 import { Tooltip } from '../../components/Tooltip';
-import type { Permit } from '../../types/ptw';
+import type { Permit, PermitStatus } from '../../types/ptw';
 import { AlertCircle } from 'lucide-react';
 
 interface FormProps {
@@ -19,7 +19,8 @@ export const ConfinedSpace: React.FC<FormProps> = ({ permits, onSetPermits, curr
   const formCode = 'KE-PTW-CS-08';
 
   const [permitId, setPermitId] = useState('');
-  const [status, setStatus] = useState<'draft' | 'pending' | 'approved' | 'rejected'>('draft');
+  const [status, setStatus] = useState<PermitStatus>('DRAFT');
+  const [approverSignature, setApproverSignature] = useState('');
 
   // Entry Information
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
@@ -58,7 +59,7 @@ export const ConfinedSpace: React.FC<FormProps> = ({ permits, onSetPermits, curr
     const existing = editId ? permits.find((p) => p.id === editId) : null;
     if (existing) {
       setPermitId(existing.id);
-      setStatus(existing.status);
+      setStatus(existing.status as PermitStatus);
       const d = existing.formData;
       if (d) {
         setDate(d.date || new Date().toISOString().split('T')[0]);
@@ -74,10 +75,11 @@ export const ConfinedSpace: React.FC<FormProps> = ({ permits, onSetPermits, curr
         setEmergencyChecklist(d.emergencyChecklist || {});
         setGasTesterSig(d.gasTesterSig || '');
         setSupervisorSig(d.supervisorSig || '');
+        setApproverSignature(d.approverSignature || '');
       }
     } else {
       setPermitId(`KE-CS-${Math.floor(100000 + Math.random() * 900000)}`);
-      setStatus('draft');
+      setStatus('DRAFT');
       setDate(new Date().toISOString().split('T')[0]);
       setLocation('');
       setPurposeOfEntry('');
@@ -91,6 +93,7 @@ export const ConfinedSpace: React.FC<FormProps> = ({ permits, onSetPermits, curr
       setEmergencyChecklist({ rescueTeamInformed: false, emergencyContactAvailable: false });
       setGasTesterSig('');
       setSupervisorSig('');
+      setApproverSignature('');
     }
   }, [permits, editId, currentUser]);
 
@@ -124,6 +127,7 @@ export const ConfinedSpace: React.FC<FormProps> = ({ permits, onSetPermits, curr
     emergencyChecklist,
     gasTesterSig,
     supervisorSig,
+    approverSignature,
   });
 
   const saveToStore = (permit: Permit) => {
@@ -139,7 +143,7 @@ export const ConfinedSpace: React.FC<FormProps> = ({ permits, onSetPermits, curr
       id: permitId,
       type: 'confined-space',
       title: 'Confined Space PTW',
-      status: 'draft',
+      status: 'DRAFT',
       createdAt: new Date().toLocaleString(),
       submittedBy: authorizedEntrants,
       formData: buildFormData(),
@@ -166,9 +170,7 @@ export const ConfinedSpace: React.FC<FormProps> = ({ permits, onSetPermits, curr
       return;
     }
 
-    const allSafetyChecked = Object.values(safetyChecklist).every(Boolean);
-    const allEmergencyChecked = Object.values(emergencyChecklist).every(Boolean);
-    const finalStatus = allSafetyChecked && allEmergencyChecked ? 'approved' : 'pending';
+    const finalStatus = 'PENDING_APPROVAL';
 
     saveToStore({
       id: permitId,
@@ -177,56 +179,59 @@ export const ConfinedSpace: React.FC<FormProps> = ({ permits, onSetPermits, curr
       status: finalStatus,
       createdAt: new Date().toLocaleString(),
       submittedBy: authorizedEntrants,
-      approvedBy: finalStatus === 'approved' ? 'Lead Industrial Safety Engineer' : undefined,
-      approvedAt: finalStatus === 'approved' ? new Date().toLocaleString() : undefined,
       formData: buildFormData(),
     });
     setStatus(finalStatus);
-    alert(
-      finalStatus === 'approved'
-        ? 'Confined Space Entry Permit approved! Access is authorized.'
-        : 'Safety checks incomplete. Permit set to Pending review.'
-    );
+    alert('Permit submitted successfully and is now pending safety officer review.');
     navigate('/');
   };
 
-  const handleApprove = () => {
+  const handleApprove = (approverSig: string) => {
     const existing = permits.find((p) => p.id === permitId);
     if (!existing) return;
     saveToStore({
       ...existing,
-      status: 'approved',
+      status: 'APPROVED',
       approvedBy: `${currentUser?.name || 'Admin'} (${currentUser?.role || 'Safety Officer'})`,
       approvedAt: new Date().toLocaleString(),
+      formData: {
+        ...existing.formData,
+        approverSignature: approverSig,
+      },
     });
-    setStatus('approved');
+    setStatus('APPROVED');
+    setApproverSignature(approverSig);
     alert('Permit approved successfully!');
     navigate('/admin');
   };
 
-  const handleReject = () => {
+  const handleReject = (approverSig: string) => {
     const existing = permits.find((p) => p.id === permitId);
     if (!existing) return;
-    saveToStore({ ...existing, status: 'rejected' });
-    setStatus('rejected');
+    saveToStore({
+      ...existing,
+      status: 'REJECTED',
+      formData: {
+        ...existing.formData,
+        approverSignature: approverSig,
+      },
+    });
+    setStatus('REJECTED');
+    setApproverSignature(approverSig);
     alert('Permit rejected.');
     navigate('/admin');
   };
 
   const atmosphere = validateAtmosphere();
-  const isDisabled =
-    status === 'approved' ||
-    status === 'rejected' ||
-    (currentUser?.role === 'Principal Safety Officer' && status === 'pending');
+  const isDisabled = status !== 'DRAFT';
 
   const sectionHeader = (label: string) => (
     <div
       style={{
         color: '#1e3a5f',
-        fontSize: '0.7rem',
+        fontSize: '0.75rem',
         fontWeight: 700,
-        letterSpacing: '0.1em',
-        textTransform: 'uppercase',
+        letterSpacing: '0.05em',
         borderBottom: '1.5px solid #1e3a5f',
         paddingBottom: '4px',
         marginBottom: '10px',
@@ -256,13 +261,13 @@ export const ConfinedSpace: React.FC<FormProps> = ({ permits, onSetPermits, curr
         type="button"
         onClick={onToggle}
         disabled={isDisabled}
-        className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+        className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1 ${
           checked
-            ? 'bg-emerald-600 border border-emerald-700 text-white shadow-sm'
-            : 'bg-gray-105 border border-gray-300 text-gray-655 hover:bg-gray-200'
+            ? 'bg-emerald-600 border-2 border-emerald-700 text-white shadow-sm ring-1 ring-emerald-500/20'
+            : 'bg-white hover:bg-gray-50 border border-gray-300 text-gray-700'
         }`}
       >
-        {checked ? 'Yes' : 'No'}
+        {checked ? '✓ Yes' : '✗ No'}
       </button>
     </div>
   );
@@ -278,6 +283,7 @@ export const ConfinedSpace: React.FC<FormProps> = ({ permits, onSetPermits, curr
       isAdmin={currentUser?.role === 'Principal Safety Officer'}
       onApprove={handleApprove}
       onReject={handleReject}
+      approverSignature={approverSignature}
     >
       {/* DESCRIPTION BANNER */}
       <div
@@ -300,43 +306,43 @@ export const ConfinedSpace: React.FC<FormProps> = ({ permits, onSetPermits, curr
         {sectionHeader('Entry Information')}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <label className="text-xs font-bold text-gray-550 block mb-1">PERMIT NUMBER</label>
+            <label className="text-xs font-bold text-gray-700 block mb-1">Permit Number</label>
             <input
               type="text"
               value={permitId}
               readOnly
-              className="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-500 font-mono outline-none"
+              className="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-600 font-mono outline-none"
             />
           </div>
           <div>
-            <label className="text-xs font-bold text-gray-550 block mb-1">DATE</label>
+            <label className="text-xs font-bold text-gray-700 block mb-1">Date</label>
             <input
               type="date"
               value={date}
               onChange={(e) => setDate(e.target.value)}
-              className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-brand-orange"
+              className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-brand-orange text-gray-800"
               disabled={isDisabled}
             />
           </div>
           <div>
-            <label className="text-xs font-bold text-gray-550 block mb-1">LOCATION</label>
+            <label className="text-xs font-bold text-gray-700 block mb-1">Location</label>
             <input
               type="text"
               value={location}
               onChange={(e) => setLocation(e.target.value)}
               placeholder="e.g. MH-CLIF-8392, Phase 6 DHA"
-              className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-brand-orange"
+              className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-brand-orange text-gray-800"
               disabled={isDisabled}
             />
           </div>
           <div>
-            <label className="text-xs font-bold text-gray-550 block mb-1">PURPOSE OF ENTRY</label>
+            <label className="text-xs font-bold text-gray-700 block mb-1">Purpose of Entry</label>
             <input
               type="text"
               value={purposeOfEntry}
               onChange={(e) => setPurposeOfEntry(e.target.value)}
               placeholder="e.g. Cable inspection and jointing"
-              className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-brand-orange"
+              className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-brand-orange text-gray-800"
               disabled={isDisabled}
             />
           </div>
@@ -348,7 +354,7 @@ export const ConfinedSpace: React.FC<FormProps> = ({ permits, onSetPermits, curr
         {sectionHeader('Atmospheric Testing')}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className="p-4 bg-white border border-gray-250 rounded-xl shadow-xs">
-            <label className="text-[10px] font-bold text-gray-450 block uppercase mb-1">
+            <label className="text-[10px] font-bold text-gray-600 block mb-1">
               Oxygen Level (O₂) — %
             </label>
             <input
@@ -363,13 +369,13 @@ export const ConfinedSpace: React.FC<FormProps> = ({ permits, onSetPermits, curr
               }`}
               disabled={isDisabled}
             />
-            <span className="text-[9px] text-gray-400 mt-1 block text-center font-mono">
+            <span className="text-[9px] text-gray-600 mt-1 block text-center font-mono">
               Safe: 19.5% – 23.5%
             </span>
           </div>
 
           <div className="p-4 bg-white border border-gray-250 rounded-xl shadow-xs">
-            <label className="text-[10px] font-bold text-gray-450 block uppercase mb-1">
+            <label className="text-[10px] font-bold text-gray-600 block mb-1">
               Toxic Gas Level (H₂S/CO) — PPM
             </label>
             <input
@@ -383,13 +389,13 @@ export const ConfinedSpace: React.FC<FormProps> = ({ permits, onSetPermits, curr
               }`}
               disabled={isDisabled}
             />
-            <span className="text-[9px] text-gray-400 mt-1 block text-center font-mono">
+            <span className="text-[9px] text-gray-600 mt-1 block text-center font-mono">
               Safe: &lt; 10 PPM
             </span>
           </div>
 
           <div className="p-4 bg-white border border-gray-250 rounded-xl shadow-xs">
-            <label className="text-[10px] font-bold text-gray-450 block uppercase mb-1">
+            <label className="text-[10px] font-bold text-gray-600 block mb-1">
               Flammable Gas Level (CH₄/LEL) — %
             </label>
             <input
@@ -403,7 +409,7 @@ export const ConfinedSpace: React.FC<FormProps> = ({ permits, onSetPermits, curr
               }`}
               disabled={isDisabled}
             />
-            <span className="text-[9px] text-gray-400 mt-1 block text-center font-mono">
+            <span className="text-[9px] text-gray-600 mt-1 block text-center font-mono">
               Safe: &lt; 10% LEL
             </span>
           </div>
@@ -413,7 +419,7 @@ export const ConfinedSpace: React.FC<FormProps> = ({ permits, onSetPermits, curr
           <div className="bg-red-50 border border-red-200 text-red-800 p-4 rounded-xl flex items-start gap-2.5">
             <AlertCircle className="h-5 w-5 shrink-0 text-red-650 mt-0.5 animate-bounce" />
             <div>
-              <div className="text-xs font-bold uppercase tracking-wider">Atmospheric Hazard Present</div>
+              <div className="text-xs font-bold tracking-wider">Atmospheric Hazard Present</div>
               <div className="text-xs mt-0.5 font-medium">
                 One or more gas levels are outside safe limits. Forced ventilation must continue. Entry is forbidden.
               </div>
@@ -458,33 +464,33 @@ export const ConfinedSpace: React.FC<FormProps> = ({ permits, onSetPermits, curr
         {sectionHeader('Personnel')}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div>
-            <label className="text-xs font-bold text-gray-550 block mb-1">AUTHORIZED ENTRANTS</label>
+            <label className="text-xs font-bold text-gray-700 block mb-1">Authorized Entrants</label>
             <input
               type="text"
               value={authorizedEntrants}
               onChange={(e) => setAuthorizedEntrants(e.target.value)}
               placeholder="Full name(s) of authorized entrants"
-              className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-brand-orange"
+              className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-brand-orange text-gray-800"
               disabled={isDisabled}
             />
           </div>
           <div>
-            <label className="text-xs font-bold text-gray-550 block mb-1">ENTRY TIME</label>
+            <label className="text-xs font-bold text-gray-700 block mb-1">Entry Time</label>
             <input
               type="time"
               value={entryTime}
               onChange={(e) => setEntryTime(e.target.value)}
-              className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-brand-orange"
+              className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-brand-orange text-gray-800"
               disabled={isDisabled}
             />
           </div>
           <div>
-            <label className="text-xs font-bold text-gray-550 block mb-1">EXIT TIME</label>
+            <label className="text-xs font-bold text-gray-700 block mb-1">Exit Time</label>
             <input
               type="time"
               value={exitTime}
               onChange={(e) => setExitTime(e.target.value)}
-              className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-brand-orange"
+              className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-brand-orange text-gray-800"
               disabled={isDisabled}
             />
           </div>
@@ -515,14 +521,14 @@ export const ConfinedSpace: React.FC<FormProps> = ({ permits, onSetPermits, curr
         {sectionHeader('Multi-Officer Entry Clearance Authorization')}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <SignaturePad
-            label="1. CERTIFIED GAS TESTER"
+            label="1. Certified Gas Tester"
             role="Authorized Gas Tester"
             onSign={setGasTesterSig}
             savedSignature={gasTesterSig}
             disabled={isDisabled}
           />
           <SignaturePad
-            label="2. ENTRY SUPERVISOR"
+            label="2. Entry Supervisor"
             role="Site Entry Supervisor"
             onSign={setSupervisorSig}
             savedSignature={supervisorSig}

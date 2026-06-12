@@ -14,6 +14,7 @@ import {
   ChevronLeft,
   ChevronRight,
   User,
+  History,
 } from 'lucide-react';
 import type { UserProfile } from '../types/ptw';
 
@@ -30,7 +31,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ collapsed, setCollapsed, curre
   const menuItems = isAdmin
     ? [
         {
-          category: 'ADMIN NAVIGATION',
+          category: 'Admin Navigation',
           items: [
             { path: '/admin', name: 'Admin Dashboard', icon: LayoutDashboard },
             { path: '/profile', name: 'Profile Details', icon: User },
@@ -39,14 +40,15 @@ export const Sidebar: React.FC<SidebarProps> = ({ collapsed, setCollapsed, curre
       ]
     : [
         {
-          category: 'NAVIGATION',
+          category: 'Navigation',
           items: [
             { path: '/', name: 'Home / Forms', icon: LayoutDashboard },
+            { path: '/history', name: 'Submission History', icon: History },
             { path: '/profile', name: 'Profile Details', icon: User },
           ],
         },
         {
-          category: 'PTW OPERATIONAL FORMS',
+          category: 'PTW Operational Forms',
           items: [
             {
               path: '/vehicle-inspection',
@@ -108,16 +110,16 @@ export const Sidebar: React.FC<SidebarProps> = ({ collapsed, setCollapsed, curre
 
   return (
     <aside 
-      className={`sticky top-[69px] h-[calc(100vh-69px)] bg-brand-primary border-r border-gray-800 text-gray-300 flex flex-col transition-all duration-300 z-30 shrink-0 print:hidden ${
+      className={`h-full bg-brand-primary border-r border-gray-800 text-gray-300 flex flex-col transition-all duration-300 z-30 shrink-0 print:hidden ${
         collapsed ? 'w-20' : 'w-72'
       }`}
     >
       {/* Scrollable Menu Items */}
-      <div className="flex-1 overflow-y-auto py-5 px-3 space-y-6 select-none">
+      <div className="flex-1 overflow-y-auto custom-scrollbar-dark py-5 px-3 space-y-6 select-none">
         {menuItems.map((cat, catIdx) => (
           <div key={catIdx} className="space-y-1.5">
             {!collapsed && (
-              <h3 className="text-[10px] font-bold text-gray-500 tracking-widest px-3 uppercase mb-2">
+              <h3 className="text-[10px] font-bold text-gray-400 tracking-widest px-3 mb-2">
                 {cat.category}
               </h3>
             )}

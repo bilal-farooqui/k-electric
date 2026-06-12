@@ -3,7 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { FormWrapper } from '../../components/FormWrapper';
 import { SignaturePad } from '../../components/SignaturePad';
 import { Tooltip } from '../../components/Tooltip';
-import type { Permit } from '../../types/ptw';
+import type { Permit, PermitStatus } from '../../types/ptw';
 
 interface FormProps {
   permits: Permit[];
@@ -18,7 +18,8 @@ export const Excavation: React.FC<FormProps> = ({ permits, onSetPermits, current
   const formCode = 'KE-PTW-EX-07';
 
   const [permitId, setPermitId] = useState('');
-  const [status, setStatus] = useState<'draft' | 'pending' | 'approved' | 'rejected'>('draft');
+  const [status, setStatus] = useState<PermitStatus>('DRAFT');
+  const [approverSignature, setApproverSignature] = useState('');
 
   // Form State
   const [trenchLocation, setTrenchLocation] = useState('Lane 7, Phase 6 DHA');
@@ -46,7 +47,7 @@ export const Excavation: React.FC<FormProps> = ({ permits, onSetPermits, current
     const existing = editId ? permits.find((p) => p.id === editId) : null;
     if (existing) {
       setPermitId(existing.id);
-      setStatus(existing.status);
+      setStatus(existing.status as PermitStatus);
       const data = existing.formData;
       if (data) {
         setTrenchLocation(data.trenchLocation || '');
@@ -60,10 +61,11 @@ export const Excavation: React.FC<FormProps> = ({ permits, onSetPermits, current
         setChecklist(data.checklist || {});
         setSupervisorSig(data.supervisorSig || '');
         setSafetyOfficerSig(data.safetyOfficerSig || '');
+        setApproverSignature(data.approverSignature || '');
       }
     } else {
       setPermitId(`KE-EX-${Math.floor(100000 + Math.random() * 900000)}`);
-      setStatus('draft');
+      setStatus('DRAFT');
       setTrenchLocation('Lane 7, Phase 6 DHA');
       setArea('');
       setPurpose('HV Cable Jointing & Inspection');
@@ -82,6 +84,7 @@ export const Excavation: React.FC<FormProps> = ({ permits, onSetPermits, current
       });
       setSupervisorSig('');
       setSafetyOfficerSig('');
+      setApproverSignature('');
     }
   }, [permits, editId, currentUser]);
 
@@ -89,7 +92,7 @@ export const Excavation: React.FC<FormProps> = ({ permits, onSetPermits, current
     setChecklist((prev) => ({ ...prev, [item]: !prev[item] }));
   };
 
-  const buildPermitPayload = (overrideStatus: 'draft' | 'pending' | 'approved' | 'rejected') => ({
+  const buildPermitPayload = (overrideStatus: PermitStatus) => ({
     id: permitId,
     type: 'excavation' as const,
     title: 'Excavation PTW',
@@ -108,6 +111,7 @@ export const Excavation: React.FC<FormProps> = ({ permits, onSetPermits, current
       checklist,
       supervisorSig,
       safetyOfficerSig,
+      approverSignature,
     },
   });
 
@@ -120,7 +124,7 @@ export const Excavation: React.FC<FormProps> = ({ permits, onSetPermits, current
   };
 
   const handleSaveDraft = () => {
-    saveToStore(buildPermitPayload('draft'));
+    saveToStore(buildPermitPayload('DRAFT'));
     alert('Draft saved successfully!');
   };
 
@@ -137,46 +141,52 @@ export const Excavation: React.FC<FormProps> = ({ permits, onSetPermits, current
       return;
     }
 
-    const allChecked = Object.values(checklist).every((val) => val === true);
-    const finalStatus = allChecked ? 'approved' : 'pending';
+    const finalStatus = 'PENDING_APPROVAL';
 
     const newPermit: Permit = {
       ...buildPermitPayload(finalStatus),
-      approvedBy: finalStatus === 'approved' ? 'Chief Safety Officer' : undefined,
-      approvedAt: finalStatus === 'approved' ? new Date().toLocaleString() : undefined,
     };
 
     saveToStore(newPermit);
     setStatus(finalStatus);
-    alert(
-      allChecked
-        ? 'Excavation permit approved! Excavation is authorized to begin.'
-        : 'Warning: Missing core safety checklist items. Permit set to Pending review.'
-    );
+    alert('Permit submitted successfully and is now pending safety officer review.');
     navigate('/');
   };
 
-  const handleApprove = () => {
+  const handleApprove = (approverSig: string) => {
     const existing = permits.find((p) => p.id === permitId);
     if (!existing) return;
     const updatedPermit: Permit = {
       ...existing,
-      status: 'approved',
+      status: 'APPROVED',
       approvedBy: `${currentUser?.name || 'Admin'} (${currentUser?.role || 'Safety Officer'})`,
       approvedAt: new Date().toLocaleString(),
+      formData: {
+        ...existing.formData,
+        approverSignature: approverSig,
+      },
     };
     saveToStore(updatedPermit);
-    setStatus('approved');
+    setStatus('APPROVED');
+    setApproverSignature(approverSig);
     alert('Permit approved successfully!');
     navigate('/admin');
   };
 
-  const handleReject = () => {
+  const handleReject = (approverSig: string) => {
     const existing = permits.find((p) => p.id === permitId);
     if (!existing) return;
-    const updatedPermit: Permit = { ...existing, status: 'rejected' };
+    const updatedPermit: Permit = {
+      ...existing,
+      status: 'REJECTED',
+      formData: {
+        ...existing.formData,
+        approverSignature: approverSig,
+      },
+    };
     saveToStore(updatedPermit);
-    setStatus('rejected');
+    setStatus('REJECTED');
+    setApproverSignature(approverSig);
     alert('Permit rejected.');
     navigate('/admin');
   };
@@ -190,7 +200,7 @@ export const Excavation: React.FC<FormProps> = ({ permits, onSetPermits, current
     { key: 'spoilDistance', label: 'Excavated Soil/Spoils Kept 1m Away', tooltip: 'Trench spoils must be piled at least 1 meter away from the edge of the excavation.' },
   ];
 
-  const isDisabled = status === 'approved' || status === 'rejected' || (currentUser?.role === 'Principal Safety Officer' && status === 'pending');
+  const isDisabled = status !== 'DRAFT';
 
   // Inline style for underline blanks in the letter preview
   const blank = (val: string, width = '160px') => (
@@ -224,10 +234,11 @@ export const Excavation: React.FC<FormProps> = ({ permits, onSetPermits, current
       isAdmin={currentUser?.role === 'Principal Safety Officer'}
       onApprove={handleApprove}
       onReject={handleReject}
+      approverSignature={approverSignature}
     >
       {/* LETTER PREVIEW */}
       <div className="space-y-4">
-        <h3 className="text-xs font-bold text-brand-navy tracking-wider uppercase border-b border-gray-150 pb-2">
+        <h3 className="text-xs font-bold text-brand-navy tracking-wider border-b border-gray-150 pb-2">
           PTW Request Letter
         </h3>
 
@@ -275,98 +286,98 @@ export const Excavation: React.FC<FormProps> = ({ permits, onSetPermits, current
 
       {/* SECTION 1: DETAILS */}
       <div className="space-y-4">
-        <h3 className="text-xs font-bold text-brand-navy tracking-wider uppercase border-b border-gray-150 pb-2">
+        <h3 className="text-xs font-bold text-brand-navy tracking-wider border-b border-gray-150 pb-2">
           I. Excavation Operations Parameters
         </h3>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
           <div>
-            <label className="text-xs font-bold text-gray-550 block mb-1">CONTRACTOR / CREW NAME</label>
+            <label className="text-xs font-bold text-gray-700 block mb-1">Contractor / Crew Name</label>
             <input
               type="text"
               value={contractorName}
               onChange={(e) => setContractorName(e.target.value)}
-              className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-brand-orange"
+              className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-brand-orange text-gray-800"
               disabled={isDisabled}
             />
           </div>
 
           <div>
-            <label className="text-xs font-bold text-gray-550 block mb-1">SUPERVISOR NAME</label>
+            <label className="text-xs font-bold text-gray-700 block mb-1">Supervisor Name</label>
             <input
               type="text"
               value={supervisorName}
               onChange={(e) => setSupervisorName(e.target.value)}
-              className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-brand-orange"
+              className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-brand-orange text-gray-800"
               disabled={isDisabled}
             />
           </div>
 
           <div>
-            <label className="text-xs font-bold text-gray-550 block mb-1">DATE</label>
+            <label className="text-xs font-bold text-gray-700 block mb-1">Date</label>
             <input
               type="date"
               value={date}
               onChange={(e) => setDate(e.target.value)}
-              className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-brand-orange"
+              className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-brand-orange text-gray-800"
               disabled={isDisabled}
             />
           </div>
 
           <div>
-            <label className="text-xs font-bold text-gray-550 block mb-1">TRENCH SITE LOCATION</label>
+            <label className="text-xs font-bold text-gray-700 block mb-1">Trench Site Location</label>
             <input
               type="text"
               value={trenchLocation}
               onChange={(e) => setTrenchLocation(e.target.value)}
-              className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-brand-orange"
+              className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-brand-orange text-gray-800"
               disabled={isDisabled}
             />
           </div>
 
           <div>
-            <label className="text-xs font-bold text-gray-550 block mb-1">AREA</label>
+            <label className="text-xs font-bold text-gray-700 block mb-1">Area</label>
             <input
               type="text"
               value={area}
               onChange={(e) => setArea(e.target.value)}
               placeholder="e.g. DHA Phase 6"
-              className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-brand-orange"
+              className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-brand-orange text-gray-800 placeholder-gray-500"
               disabled={isDisabled}
             />
           </div>
 
           <div>
-            <label className="text-xs font-bold text-gray-550 block mb-1">PURPOSE OF TRENCH</label>
+            <label className="text-xs font-bold text-gray-700 block mb-1">Purpose of Trench</label>
             <input
               type="text"
               value={purpose}
               onChange={(e) => setPurpose(e.target.value)}
-              className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-brand-orange"
+              className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-brand-orange text-gray-800"
               disabled={isDisabled}
             />
           </div>
 
           <div>
-            <label className="text-xs font-bold text-gray-550 block mb-1">TARGET DEPTH (METERS)</label>
+            <label className="text-xs font-bold text-gray-700 block mb-1">Target Depth (Meters)</label>
             <input
               type="number"
               step="0.1"
               value={targetDepth}
               onChange={(e) => setTargetDepth(e.target.value)}
-              className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-brand-orange"
+              className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-brand-orange text-gray-800"
               disabled={isDisabled}
             />
           </div>
 
           <div>
-            <label className="text-xs font-bold text-gray-550 block mb-1">PLANNED WORK DURATION</label>
+            <label className="text-xs font-bold text-gray-700 block mb-1">Planned Work Duration</label>
             <input
               type="text"
               value={plannedDuration}
               onChange={(e) => setPlannedDuration(e.target.value)}
               placeholder="e.g. 3 Days"
-              className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-brand-orange"
+              className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-brand-orange text-gray-800 placeholder-gray-500"
               disabled={isDisabled}
             />
           </div>
@@ -375,7 +386,7 @@ export const Excavation: React.FC<FormProps> = ({ permits, onSetPermits, current
 
       {/* SECTION 2: CHECKLIST */}
       <div className="space-y-4">
-        <h3 className="text-xs font-bold text-brand-navy tracking-wider uppercase border-b border-gray-150 pb-2">
+        <h3 className="text-xs font-bold text-brand-navy tracking-wider border-b border-gray-150 pb-2">
           II. Safety Protective Systems Checklist
         </h3>
 
@@ -394,13 +405,13 @@ export const Excavation: React.FC<FormProps> = ({ permits, onSetPermits, current
                 type="button"
                 onClick={() => toggleCheck(item.key)}
                 disabled={isDisabled}
-                className={`px-4 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                className={`px-4 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1 ${
                   checklist[item.key]
-                    ? 'bg-emerald-600 border border-emerald-700 text-white shadow-sm'
-                    : 'bg-gray-105 border border-gray-300 text-gray-655 hover:bg-gray-200'
+                    ? 'bg-emerald-600 border-2 border-emerald-700 text-white shadow-sm ring-1 ring-emerald-500/20'
+                    : 'bg-white hover:bg-gray-50 border border-gray-300 text-gray-700'
                 }`}
               >
-                {checklist[item.key] ? 'Applied' : 'Pending'}
+                {checklist[item.key] ? '✓ Applied' : '✗ Pending'}
               </button>
             </div>
           ))}
@@ -409,13 +420,13 @@ export const Excavation: React.FC<FormProps> = ({ permits, onSetPermits, current
 
       {/* SECTION 3: SIGNATURES */}
       <div className="space-y-4">
-        <h3 className="text-xs font-bold text-brand-navy tracking-wider uppercase border-b border-gray-150 pb-2">
+        <h3 className="text-xs font-bold text-brand-navy tracking-wider border-b border-gray-150 pb-2">
           III. Multi-Officer Safety Authorization Stamp
         </h3>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <SignaturePad
-            label="1. CIVIL SITE SUPERVISOR"
+            label="1. Civil Site Supervisor"
             role="Civil Works Site Supervisor"
             onSign={setSupervisorSig}
             savedSignature={supervisorSig}
@@ -423,7 +434,7 @@ export const Excavation: React.FC<FormProps> = ({ permits, onSetPermits, current
           />
 
           <SignaturePad
-            label="2. DIVISION SAFETY OFFICER"
+            label="2. Division Safety Officer"
             role="Safety Inspector Officer"
             onSign={setSafetyOfficerSig}
             savedSignature={safetyOfficerSig}

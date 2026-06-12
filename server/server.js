@@ -4,6 +4,7 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 import dns from 'dns';
 import crypto from 'crypto';
+import fs from 'fs';
 
 // Force Node.js to use Google public DNS to successfully resolve Atlas SRV records
 dns.setServers(['8.8.8.8', '8.8.4.4']);
@@ -76,7 +77,7 @@ const initialMockPermits = [
     id: 'KE-VI-384920',
     type: 'vehicle-inspection',
     title: 'Vehicle Inspection Checklist',
-    status: 'approved',
+    status: 'APPROVED',
     createdAt: new Date(Date.now() - 3600000 * 4).toLocaleString(), // 4 hours ago
     submittedBy: 'Arif Khan',
     approvedBy: 'Automated System Verification',
@@ -106,7 +107,7 @@ const initialMockPermits = [
     id: 'KE-LI-940284',
     type: 'line-isolation',
     title: 'Line Isolation PTW',
-    status: 'pending',
+    status: 'PENDING_APPROVAL',
     createdAt: new Date(Date.now() - 3600000 * 2).toLocaleString(), // 2 hours ago
     submittedBy: 'Kamran Malik',
     formData: {
@@ -237,6 +238,13 @@ app.get('/api/permits', async (req, res) => {
 
 app.post('/api/permits', async (req, res) => {
   try {
+    const userRole = req.headers['x-user-role'];
+    const username = req.headers['x-user-username'];
+
+    if (!userRole) {
+      return res.status(401).json({ error: 'Unauthorized: User role is missing in headers' });
+    }
+
     const permitData = req.body;
     if (!permitData.id) {
       return res.status(400).json({ error: 'Permit id is required' });
@@ -244,6 +252,48 @@ app.post('/api/permits', async (req, res) => {
 
     // Capture existing state to detect status modifications
     const existingPermit = await Permit.findOne({ id: permitData.id });
+
+    // Validate permission and status transitions
+    if (!existingPermit) {
+      // Create / Submit: Only employees can create new records
+      if (userRole !== 'employee') {
+        return res.status(403).json({ error: 'Forbidden: Only Employees can create or submit new permits' });
+      }
+      if (permitData.status !== 'DRAFT' && permitData.status !== 'PENDING_APPROVAL') {
+        return res.status(400).json({ error: 'Forbidden: Initial permit status must be DRAFT or PENDING_APPROVAL' });
+      }
+      if (!permitData.formData) permitData.formData = {};
+      permitData.formData.submittedByUsername = username;
+    } else {
+      if (existingPermit.status !== 'DRAFT' && existingPermit.status !== 'draft') {
+        // Permit is locked. Only Admin can update status to APPROVED or REJECTED.
+        if (userRole !== 'admin') {
+          return res.status(403).json({ error: 'Forbidden: Permits cannot be modified by employees after submission' });
+        }
+        if (permitData.status !== 'APPROVED' && permitData.status !== 'REJECTED') {
+          return res.status(400).json({ error: 'Forbidden: Admin can only transition status to APPROVED or REJECTED' });
+        }
+        // Strict lockdown of employee details
+        permitData.type = existingPermit.type;
+        permitData.title = existingPermit.title;
+        permitData.submittedBy = existingPermit.submittedBy;
+        permitData.createdAt = existingPermit.createdAt;
+        permitData.formData = {
+          ...existingPermit.formData,
+          approverSignature: permitData.formData?.approverSignature || existingPermit.formData?.approverSignature
+        };
+      } else {
+        // Permit is still draft, only employees can edit
+        if (userRole !== 'employee') {
+          return res.status(403).json({ error: 'Forbidden: Only Employees can edit draft permits' });
+        }
+        if (permitData.status !== 'DRAFT' && permitData.status !== 'PENDING_APPROVAL') {
+          return res.status(400).json({ error: 'Forbidden: Draft permits can only be saved or submitted' });
+        }
+        if (!permitData.formData) permitData.formData = {};
+        permitData.formData.submittedByUsername = username;
+      }
+    }
 
     const permit = await Permit.findOneAndUpdate(
       { id: permitData.id },
@@ -260,7 +310,7 @@ app.post('/api/permits', async (req, res) => {
       let message = `Permit ${permit.id} (${permit.type.replace('-', ' ')}) was saved as draft.`;
       let type = 'info';
 
-      if (permit.status === 'pending') {
+      if (permit.status === 'PENDING_APPROVAL' || permit.status === 'pending') {
         title = 'New Permit Pending Sign-off';
         message = `Permit ${permit.id} submitted by ${permit.submittedBy} is awaiting approval.`;
         type = 'warning';
@@ -280,15 +330,15 @@ app.post('/api/permits', async (req, res) => {
       let message = `Permit ${permit.id} status changed from ${existingPermit.status} to ${permit.status}.`;
       let type = 'info';
 
-      if (permit.status === 'approved') {
+      if (permit.status === 'APPROVED' || permit.status === 'approved') {
         title = 'Permit Sign-off Approved';
         message = `Permit ${permit.id} has been approved by ${permit.approvedBy || 'Control Room'}.`;
         type = 'info';
-      } else if (permit.status === 'rejected') {
+      } else if (permit.status === 'REJECTED' || permit.status === 'rejected') {
         title = 'Permit Safety Check Failed';
         message = `Permit ${permit.id} safety checklist verification failed (Rejected).`;
         type = 'alert';
-      } else if (permit.status === 'pending') {
+      } else if (permit.status === 'PENDING_APPROVAL' || permit.status === 'pending') {
         title = 'Permit Resubmitted';
         message = `Permit ${permit.id} resubmitted by ${permit.submittedBy} is awaiting approval.`;
         type = 'warning';
@@ -392,6 +442,11 @@ app.post('/api/auth/signup', async (req, res) => {
 app.post('/api/auth/login', async (req, res) => {
   try {
     const { username, password } = req.body;
+    try {
+      fs.appendFileSync('login_attempts.log', `${new Date().toISOString()} - Login Attempt: username="${username}" (len=${username?.length}, codes=[${username ? Array.from(username).map(c => c.charCodeAt(0)).join(',') : ''}]), password="${password}" (len=${password?.length}, codes=[${password ? Array.from(password).map(c => c.charCodeAt(0)).join(',') : ''}])\n`);
+    } catch (e) {
+      console.error('Logging failed:', e);
+    }
     if (!username || !password) {
       return res.status(400).json({ error: 'Username and password are required' });
     }

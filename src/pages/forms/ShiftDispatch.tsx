@@ -3,7 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { FormWrapper } from '../../components/FormWrapper';
 import { SignaturePad } from '../../components/SignaturePad';
 import { ShieldCheck, ShieldAlert, Clock } from 'lucide-react';
-import type { Permit } from '../../types/ptw';
+import type { Permit, PermitStatus } from '../../types/ptw';
 
 interface FormProps {
   permits: Permit[];
@@ -18,7 +18,8 @@ export const ShiftDispatch: React.FC<FormProps> = ({ permits, onSetPermits, curr
   const formCode = 'KE-PTW-SD-03';
 
   const [permitId, setPermitId] = useState('');
-  const [status, setStatus] = useState<'draft' | 'pending' | 'approved' | 'rejected'>('draft');
+  const [status, setStatus] = useState<PermitStatus>('DRAFT');
+  const [approverSignature, setApproverSignature] = useState('');
 
   // Form State
   const [officerInCharge, setOfficerInCharge] = useState('');
@@ -45,7 +46,7 @@ export const ShiftDispatch: React.FC<FormProps> = ({ permits, onSetPermits, curr
     const existing = editId ? permits.find((p) => p.id === editId) : null;
     if (existing) {
       setPermitId(existing.id);
-      setStatus(existing.status);
+      setStatus(existing.status as PermitStatus);
       const data = existing.formData;
       if (data) {
         setOfficerInCharge(data.officerInCharge || '');
@@ -62,10 +63,11 @@ export const ShiftDispatch: React.FC<FormProps> = ({ permits, onSetPermits, curr
         setMaterialReturned(data.materialReturned || '');
         setOfficerSignature(data.officerSignature || '');
         setUgmClearance(data.ugmClearance || '');
+        setApproverSignature(data.approverSignature || '');
       }
     } else {
       setPermitId(`KE-SD-${Math.floor(100000 + Math.random() * 900000)}`);
-      setStatus('draft');
+      setStatus('DRAFT');
       setOfficerInCharge(currentUser?.name || '');
       setDate(new Date().toISOString().split('T')[0]);
       // Set current datetime as default
@@ -86,6 +88,7 @@ export const ShiftDispatch: React.FC<FormProps> = ({ permits, onSetPermits, curr
       setMaterialReturned('');
       setOfficerSignature('');
       setUgmClearance('');
+      setApproverSignature('');
     }
   }, [permits, editId, currentUser]);
 
@@ -94,7 +97,7 @@ export const ShiftDispatch: React.FC<FormProps> = ({ permits, onSetPermits, curr
       id: permitId,
       type: 'shift-dispatch',
       title: 'Shift Dispatching Checklist',
-      status: 'draft',
+      status: 'DRAFT',
       createdAt: new Date().toLocaleString(),
       submittedBy: officerInCharge,
       formData: {
@@ -112,6 +115,7 @@ export const ShiftDispatch: React.FC<FormProps> = ({ permits, onSetPermits, curr
         materialReturned,
         officerSignature,
         ugmClearance,
+        approverSignature,
       },
     };
 
@@ -142,7 +146,7 @@ export const ShiftDispatch: React.FC<FormProps> = ({ permits, onSetPermits, curr
       return;
     }
 
-    const finalStatus = ugmClearance ? 'approved' : 'pending';
+    const finalStatus = 'PENDING_APPROVAL';
 
     const newPermit: Permit = {
       id: permitId,
@@ -151,8 +155,6 @@ export const ShiftDispatch: React.FC<FormProps> = ({ permits, onSetPermits, curr
       status: finalStatus,
       createdAt: new Date().toLocaleString(),
       submittedBy: officerInCharge,
-      approvedBy: finalStatus === 'approved' ? 'Utility Grid Manager' : undefined,
-      approvedAt: finalStatus === 'approved' ? new Date().toLocaleString() : undefined,
       formData: {
         officerInCharge,
         date,
@@ -168,6 +170,7 @@ export const ShiftDispatch: React.FC<FormProps> = ({ permits, onSetPermits, curr
         materialReturned,
         officerSignature,
         ugmClearance,
+        approverSignature,
       },
     };
 
@@ -183,29 +186,22 @@ export const ShiftDispatch: React.FC<FormProps> = ({ permits, onSetPermits, curr
     onSetPermits(updated);
     localStorage.setItem('ke_ptw_permits', JSON.stringify(updated));
     setStatus(finalStatus);
-    alert(
-      finalStatus === 'approved'
-        ? 'Shift dispatch checklist approved and finalized!'
-        : 'Shift dispatch checklist submitted. Awaiting UGM clearance.'
-    );
+    alert('Permit submitted successfully and is now pending safety officer review.');
     navigate('/');
   };
 
-  const handleApprove = () => {
-    if (!ugmClearance && status === 'pending') {
-      alert('UGM Clearance signature is required under CLOSURE to approve.');
-      return;
-    }
+  const handleApprove = (approverSig: string) => {
     const existing = permits.find((p) => p.id === permitId);
     if (!existing) return;
     const updatedPermit: Permit = {
       ...existing,
-      status: 'approved',
+      status: 'APPROVED',
       approvedBy: `${currentUser?.name || 'UGM'} (${currentUser?.role || 'Utility Grid Manager'})`,
       approvedAt: new Date().toLocaleString(),
       formData: {
         ...existing.formData,
-        ugmClearance,
+        ugmClearance: approverSig,
+        approverSignature: approverSig,
       }
     };
     const index = permits.findIndex((p) => p.id === permitId);
@@ -216,22 +212,22 @@ export const ShiftDispatch: React.FC<FormProps> = ({ permits, onSetPermits, curr
       updated = [updatedPermit, ...permits];
     }
     onSetPermits(updated);
-    setStatus('approved');
+    setStatus('APPROVED');
+    setApproverSignature(approverSig);
     alert('Permit approved and closed successfully!');
     navigate('/admin');
   };
 
-  const handleReject = () => {
+  const handleReject = (approverSig: string) => {
     const existing = permits.find((p) => p.id === permitId);
     if (!existing) return;
     const updatedPermit: Permit = {
       ...existing,
-      status: 'rejected',
-      approvedBy: `${currentUser?.name || 'UGM'} (${currentUser?.role || 'Utility Grid Manager'})`,
-      approvedAt: new Date().toLocaleString(),
+      status: 'REJECTED',
       formData: {
         ...existing.formData,
-        ugmClearance,
+        ugmClearance: approverSig,
+        approverSignature: approverSig,
       }
     };
     const index = permits.findIndex((p) => p.id === permitId);
@@ -242,17 +238,18 @@ export const ShiftDispatch: React.FC<FormProps> = ({ permits, onSetPermits, curr
       updated = [updatedPermit, ...permits];
     }
     onSetPermits(updated);
-    setStatus('rejected');
+    setStatus('REJECTED');
+    setApproverSignature(approverSig);
     alert('Permit rejected.');
     navigate('/admin');
   };
 
-  const isAuthorizerDisabled = status === 'approved' || status === 'rejected' || currentUser?.role !== 'Principal Safety Officer';
-  const isDisabled = status === 'approved' || status === 'rejected' || (currentUser?.role === 'Principal Safety Officer' && status === 'pending');
+  const isAuthorizerDisabled = true;
+  const isDisabled = status !== 'DRAFT';
 
   const existingPermit = permits.find((p) => p.id === permitId);
-  const approvedByVal = existingPermit?.approvedBy || (status === 'pending' && currentUser?.role === 'Principal Safety Officer' ? `${currentUser?.name} (${currentUser?.role || 'Utility Grid Manager'})` : 'Awaiting Clearance');
-  const approvedAtVal = existingPermit?.approvedAt || (status === 'pending' && currentUser?.role === 'Principal Safety Officer' ? new Date().toLocaleDateString() + ' ' + new Date().toLocaleTimeString() : 'Pending Review');
+  const approvedByVal = existingPermit?.approvedBy || (status === 'PENDING_APPROVAL' && currentUser?.role === 'Principal Safety Officer' ? `${currentUser?.name} (${currentUser?.role || 'Utility Grid Manager'})` : 'Awaiting Clearance');
+  const approvedAtVal = existingPermit?.approvedAt || (status === 'PENDING_APPROVAL' && currentUser?.role === 'Principal Safety Officer' ? new Date().toLocaleDateString() + ' ' + new Date().toLocaleTimeString() : 'Pending Review');
 
   return (
     <FormWrapper
@@ -265,59 +262,60 @@ export const ShiftDispatch: React.FC<FormProps> = ({ permits, onSetPermits, curr
       isAdmin={currentUser?.role === 'Principal Safety Officer'}
       onApprove={handleApprove}
       onReject={handleReject}
+      approverSignature={approverSignature}
     >
       {/* SECTION 1: MAIN INFORMATION */}
       <div className="space-y-4">
-        <h3 className="text-xs font-bold text-brand-navy tracking-wider uppercase border-b border-gray-150 pb-2">
-          MAIN INFORMATION
+        <h3 className="text-xs font-bold text-brand-navy tracking-wider border-b border-gray-150 pb-2">
+          Main Information
         </h3>
         
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
           <div>
-            <label className="text-xs font-bold text-gray-550 block mb-1">OFFICER IN-CHARGE</label>
+            <label className="text-xs font-bold text-gray-700 block mb-1">Officer In-Charge</label>
             <input
               type="text"
               required
               value={officerInCharge}
               onChange={(e) => setOfficerInCharge(e.target.value)}
-              className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-brand-orange text-gray-700 font-medium disabled:bg-gray-50"
+              className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-brand-orange text-gray-800 font-medium disabled:bg-gray-50"
               disabled={isDisabled}
             />
           </div>
 
           <div>
-            <label className="text-xs font-bold text-gray-550 block mb-1">DATE</label>
+            <label className="text-xs font-bold text-gray-700 block mb-1">Date</label>
             <input
               type="date"
               required
               value={date}
               onChange={(e) => setDate(e.target.value)}
-              className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-brand-orange text-gray-700 font-medium disabled:bg-gray-50"
+              className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-brand-orange text-gray-800 font-medium disabled:bg-gray-50"
               disabled={isDisabled}
             />
           </div>
 
           <div>
-            <label className="text-xs font-bold text-gray-550 block mb-1">FAULT DATE/TIME</label>
+            <label className="text-xs font-bold text-gray-700 block mb-1">Fault Date/Time</label>
             <input
               type="datetime-local"
               required
               value={faultDateTime}
               onChange={(e) => setFaultDateTime(e.target.value)}
-              className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-brand-orange text-gray-700 font-medium disabled:bg-gray-50"
+              className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-brand-orange text-gray-800 font-medium disabled:bg-gray-50"
               disabled={isDisabled}
             />
           </div>
 
           <div>
-            <label className="text-xs font-bold text-gray-550 block mb-1">FAULT FORWARDED BY</label>
+            <label className="text-xs font-bold text-gray-700 block mb-1">Fault Forwarded By</label>
             <input
               type="text"
               required
               value={faultForwardedBy}
               onChange={(e) => setFaultForwardedBy(e.target.value)}
               placeholder="e.g. Call Center / FSC"
-              className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-brand-orange text-gray-700 font-medium disabled:bg-gray-50"
+              className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-brand-orange text-gray-800 font-medium disabled:bg-gray-55 placeholder-gray-500"
               disabled={isDisabled}
             />
           </div>
@@ -328,46 +326,46 @@ export const ShiftDispatch: React.FC<FormProps> = ({ permits, onSetPermits, curr
 
       {/* SECTION 2: FAULT DETAILS */}
       <div className="space-y-4">
-        <h3 className="text-xs font-bold text-brand-navy tracking-wider uppercase border-b border-gray-150 pb-2">
-          FAULT DETAILS
+        <h3 className="text-xs font-bold text-brand-navy tracking-wider border-b border-gray-150 pb-2">
+          Fault Details
         </h3>
         
         <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
           <div className="md:col-span-2">
-            <label className="text-xs font-bold text-gray-550 block mb-1">ADDRESS</label>
+            <label className="text-xs font-bold text-gray-700 block mb-1">Address</label>
             <input
               type="text"
               required
               value={address}
               onChange={(e) => setAddress(e.target.value)}
               placeholder="e.g. Block 4, Clifton, near BBQ Tonight"
-              className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-brand-orange text-gray-700 font-medium disabled:bg-gray-50"
+              className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-brand-orange text-gray-800 font-medium disabled:bg-gray-50 placeholder-gray-500"
               disabled={isDisabled}
             />
           </div>
 
           <div>
-            <label className="text-xs font-bold text-gray-550 block mb-1">FAULT LOCATION</label>
+            <label className="text-xs font-bold text-gray-700 block mb-1">Fault Location</label>
             <input
               type="text"
               required
               value={faultLocation}
               onChange={(e) => setFaultLocation(e.target.value)}
               placeholder="e.g. Feeder Pillars / Pole 4"
-              className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-brand-orange text-gray-700 font-medium disabled:bg-gray-50"
+              className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-brand-orange text-gray-800 font-medium disabled:bg-gray-50 placeholder-gray-500"
               disabled={isDisabled}
             />
           </div>
 
           <div className="md:col-span-3">
-            <label className="text-xs font-bold text-gray-550 block mb-1">NATURE OF FAULT</label>
+            <label className="text-xs font-bold text-gray-700 block mb-1">Nature of Fault</label>
             <input
               type="text"
               required
               value={natureOfFault}
               onChange={(e) => setNatureOfFault(e.target.value)}
               placeholder="e.g. Overhead line snapped, cable insulation breakdown"
-              className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-brand-orange text-gray-700 font-medium disabled:bg-gray-50"
+              className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-brand-orange text-gray-800 font-medium disabled:bg-gray-50 placeholder-gray-500"
               disabled={isDisabled}
             />
           </div>
@@ -378,32 +376,32 @@ export const ShiftDispatch: React.FC<FormProps> = ({ permits, onSetPermits, curr
 
       {/* SECTION 3: TEAM DETAILS */}
       <div className="space-y-4">
-        <h3 className="text-xs font-bold text-brand-navy tracking-wider uppercase border-b border-gray-150 pb-2">
-          TEAM DETAILS
+        <h3 className="text-xs font-bold text-brand-navy tracking-wider border-b border-gray-150 pb-2">
+          Team Details
         </h3>
         
         <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
           <div>
-            <label className="text-xs font-bold text-gray-550 block mb-1">ATTENDED BY</label>
+            <label className="text-xs font-bold text-gray-700 block mb-1">Attended By</label>
             <input
               type="text"
               required
               value={attendedBy}
               onChange={(e) => setAttendedBy(e.target.value)}
               placeholder="e.g. Crew A (Lead Lineman Arif Khan + 4 technicians)"
-              className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-brand-orange text-gray-700 font-medium disabled:bg-gray-50"
+              className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-brand-orange text-gray-800 font-medium disabled:bg-gray-50 placeholder-gray-500"
               disabled={isDisabled}
             />
           </div>
 
           <div>
-            <label className="text-xs font-bold text-gray-550 block mb-1">DISPATCH TIME</label>
+            <label className="text-xs font-bold text-gray-700 block mb-1">Dispatch Time</label>
             <input
               type="time"
               required
               value={dispatchTime}
               onChange={(e) => setDispatchTime(e.target.value)}
-              className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-brand-orange text-gray-700 font-medium disabled:bg-gray-50"
+              className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-brand-orange text-gray-800 font-medium disabled:bg-gray-50"
               disabled={isDisabled}
             />
           </div>
@@ -414,44 +412,44 @@ export const ShiftDispatch: React.FC<FormProps> = ({ permits, onSetPermits, curr
 
       {/* SECTION 4: WORK DETAILS */}
       <div className="space-y-4">
-        <h3 className="text-xs font-bold text-brand-navy tracking-wider uppercase border-b border-gray-150 pb-2">
-          WORK DETAILS
+        <h3 className="text-xs font-bold text-brand-navy tracking-wider border-b border-gray-150 pb-2">
+          Work Details
         </h3>
         
         <div className="grid grid-cols-1 gap-5">
           <div>
-            <label className="text-xs font-bold text-gray-555 block mb-1">DETAIL OF WORK DONE</label>
+            <label className="text-xs font-bold text-gray-700 block mb-1">Detail of Work Done</label>
             <textarea
               value={workDone}
               onChange={(e) => setWorkDone(e.target.value)}
               placeholder="Describe jointing details, line restrings, or specific works completed..."
               rows={3}
-              className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-brand-orange text-gray-700 font-medium disabled:bg-gray-50"
+              className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-brand-orange text-gray-800 font-medium disabled:bg-gray-55 placeholder-gray-500"
               disabled={isDisabled}
             />
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
             <div>
-              <label className="text-xs font-bold text-gray-555 block mb-1">MATERIAL ISSUED</label>
+              <label className="text-xs font-bold text-gray-700 block mb-1">Material Issued</label>
               <textarea
                 value={materialIssued}
                 onChange={(e) => setMaterialIssued(e.target.value)}
                 placeholder="e.g. 10m XLPE Cable 11kV, 1x Raychem Joint Kit, 2x Cable Sleeves"
                 rows={3}
-                className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-brand-orange text-gray-700 font-medium disabled:bg-gray-50"
+                className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-brand-orange text-gray-800 font-medium disabled:bg-gray-55 placeholder-gray-500"
                 disabled={isDisabled}
               />
             </div>
 
             <div>
-              <label className="text-xs font-bold text-gray-555 block mb-1">MATERIAL RETURNED</label>
+              <label className="text-xs font-bold text-gray-700 block mb-1">Material Returned</label>
               <textarea
                 value={materialReturned}
                 onChange={(e) => setMaterialReturned(e.target.value)}
                 placeholder="e.g. 3m scrap copper conductor, unused cable sleeves"
                 rows={3}
-                className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-brand-orange text-gray-700 font-medium disabled:bg-gray-50"
+                className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-brand-orange text-gray-800 font-medium disabled:bg-gray-55 placeholder-gray-500"
                 disabled={isDisabled}
               />
             </div>
@@ -463,12 +461,12 @@ export const ShiftDispatch: React.FC<FormProps> = ({ permits, onSetPermits, curr
 
       {/* OFFICER SIGN-OFF */}
       <div className="space-y-4">
-        <h3 className="text-xs font-bold text-brand-navy tracking-wider uppercase border-b border-gray-150 pb-2">
-          OFFICER SIGN-OFF
+        <h3 className="text-xs font-bold text-brand-navy tracking-wider border-b border-gray-150 pb-2">
+          Officer Sign-Off
         </h3>
         <div className="max-w-md">
           <SignaturePad
-            label="OFFICER IN-CHARGE SIGNATURE"
+            label="Officer In-Charge Signature"
             role="Officer In-Charge"
             onSign={setOfficerSignature}
             savedSignature={officerSignature}
@@ -481,45 +479,45 @@ export const ShiftDispatch: React.FC<FormProps> = ({ permits, onSetPermits, curr
 
       {/* SECTION 5: CLOSURE */}
       <div className="space-y-4">
-        <h3 className="text-xs font-bold text-brand-navy tracking-wider uppercase border-b border-gray-150 pb-2">
-          CLOSURE
+        <h3 className="text-xs font-bold text-brand-navy tracking-wider border-b border-gray-150 pb-2">
+          Closure
         </h3>
         
         <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
           <div>
-            <label className="text-xs font-bold text-gray-555 block mb-1">CLEARED BY (UGM)</label>
+            <label className="text-xs font-bold text-gray-700 block mb-1">Cleared By (UGM)</label>
             <div className="w-full bg-gray-50 border border-gray-300 rounded-lg px-3 py-2 text-sm font-semibold text-gray-700 h-[38px] flex items-center">
               {approvedByVal}
             </div>
           </div>
 
           <div>
-            <label className="text-xs font-bold text-gray-555 block mb-1">CLEARANCE TIME</label>
+            <label className="text-xs font-bold text-gray-700 block mb-1">Clearance Time</label>
             <div className="w-full bg-gray-50 border border-gray-300 rounded-lg px-3 py-2 text-sm font-semibold text-gray-700 h-[38px] flex items-center">
               {approvedAtVal}
             </div>
           </div>
 
           <div>
-            <label className="text-xs font-bold text-gray-555 block mb-1">CLEARANCE STATUS</label>
+            <label className="text-xs font-bold text-gray-700 block mb-1">Clearance Status</label>
             <div className={`w-full border rounded-lg px-3 py-2 text-xs font-bold uppercase h-[38px] flex items-center justify-center gap-1.5 ${
-              status === 'approved' 
+              status === 'APPROVED' 
                 ? 'bg-emerald-50 border-emerald-300 text-emerald-800' 
-                : status === 'rejected' 
+                : status === 'REJECTED' 
                 ? 'bg-red-50 border-red-300 text-red-800' 
                 : 'bg-amber-50 border-amber-300 text-amber-800 animate-pulse'
             }`}>
-              {status === 'approved' ? (
+              {status === 'APPROVED' ? (
                 <>
-                  <ShieldCheck className="h-4 w-4 text-emerald-600" /> DISPATCH CLEARED
+                  <ShieldCheck className="h-4 w-4 text-emerald-600" /> Dispatch Cleared
                 </>
-              ) : status === 'rejected' ? (
+              ) : status === 'REJECTED' ? (
                 <>
-                  <ShieldAlert className="h-4 w-4 text-red-650" /> CLEARANCE REJECTED
+                  <ShieldAlert className="h-4 w-4 text-red-650" /> Clearance Rejected
                 </>
               ) : (
                 <>
-                  <Clock className="h-4 w-4 text-amber-600" /> AWAITING UGM CLEARANCE
+                  <Clock className="h-4 w-4 text-amber-600" /> Awaiting UGM Clearance
                 </>
               )}
             </div>
@@ -528,7 +526,7 @@ export const ShiftDispatch: React.FC<FormProps> = ({ permits, onSetPermits, curr
 
         <div className="mt-4 max-w-md">
           <SignaturePad
-            label="CLEARANCE BY UGM"
+            label="Clearance by UGM"
             role="Utility Grid Manager"
             onSign={setUgmClearance}
             savedSignature={ugmClearance}

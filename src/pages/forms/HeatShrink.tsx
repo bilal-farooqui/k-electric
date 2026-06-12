@@ -3,7 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { FormWrapper } from '../../components/FormWrapper';
 import { SignaturePad } from '../../components/SignaturePad';
 import { Tooltip } from '../../components/Tooltip';
-import type { Permit } from '../../types/ptw';
+import type { Permit, PermitStatus } from '../../types/ptw';
 
 interface FormProps {
   permits: Permit[];
@@ -18,7 +18,8 @@ export const HeatShrink: React.FC<FormProps> = ({ permits, onSetPermits, current
   const formCode = 'KE-PTW-HS-09';
 
   const [permitId, setPermitId] = useState('');
-  const [status, setStatus] = useState<'draft' | 'pending' | 'approved' | 'rejected'>('draft');
+  const [status, setStatus] = useState<PermitStatus>('DRAFT');
+  const [approverSignature, setApproverSignature] = useState('');
 
   // Job Information
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
@@ -51,7 +52,7 @@ export const HeatShrink: React.FC<FormProps> = ({ permits, onSetPermits, current
     const existing = editId ? permits.find((p) => p.id === editId) : null;
     if (existing) {
       setPermitId(existing.id);
-      setStatus(existing.status);
+      setStatus(existing.status as PermitStatus);
       const d = existing.formData;
       if (d) {
         setDate(d.date || new Date().toISOString().split('T')[0]);
@@ -66,10 +67,11 @@ export const HeatShrink: React.FC<FormProps> = ({ permits, onSetPermits, current
         setCompletionTime(d.completionTime || '');
         setJointerSig(d.jointerSig || '');
         setSupervisorSig(d.supervisorSig || '');
+        setApproverSignature(d.approverSignature || '');
       }
     } else {
       setPermitId(`KE-HS-${Math.floor(100000 + Math.random() * 900000)}`);
-      setStatus('draft');
+      setStatus('DRAFT');
       setDate(new Date().toISOString().split('T')[0]);
       setCableId('');
       setJointLocation('');
@@ -82,6 +84,7 @@ export const HeatShrink: React.FC<FormProps> = ({ permits, onSetPermits, current
       setCompletionTime('');
       setJointerSig('');
       setSupervisorSig('');
+      setApproverSignature('');
     }
   }, [permits, editId, currentUser]);
 
@@ -101,6 +104,7 @@ export const HeatShrink: React.FC<FormProps> = ({ permits, onSetPermits, current
     completionTime,
     jointerSig,
     supervisorSig,
+    approverSignature,
   });
 
   const saveToStore = (permit: Permit) => {
@@ -117,7 +121,7 @@ export const HeatShrink: React.FC<FormProps> = ({ permits, onSetPermits, current
       id: permitId,
       type: 'heat-shrink',
       title: 'Heat Shrink PTW',
-      status: 'draft',
+      status: 'DRAFT',
       createdAt: new Date().toLocaleString(),
       submittedBy: currentUser?.name || '',
       formData: buildFormData(),
@@ -138,9 +142,7 @@ export const HeatShrink: React.FC<FormProps> = ({ permits, onSetPermits, current
       return;
     }
 
-    const allHeatChecked = Object.values(heatChecklist).every(Boolean);
-    const allCompletionChecked = jointTested && supervisorApproval;
-    const finalStatus = allHeatChecked && allCompletionChecked ? 'approved' : 'pending';
+    const finalStatus = 'PENDING_APPROVAL';
 
     saveToStore({
       id: permitId,
@@ -149,55 +151,58 @@ export const HeatShrink: React.FC<FormProps> = ({ permits, onSetPermits, current
       status: finalStatus,
       createdAt: new Date().toLocaleString(),
       submittedBy: currentUser?.name || '',
-      approvedBy: finalStatus === 'approved' ? 'Substation Cable Jointing Superintendent' : undefined,
-      approvedAt: finalStatus === 'approved' ? new Date().toLocaleString() : undefined,
       formData: buildFormData(),
     });
     setStatus(finalStatus);
-    alert(
-      finalStatus === 'approved'
-        ? 'Heat Shrink jointing permit authorized! Hot work is cleared to proceed.'
-        : 'Warning: Missing critical pre-heat checks. Permit set to Pending review.'
-    );
+    alert('Permit submitted successfully and is now pending safety officer review.');
     navigate('/');
   };
 
-  const handleApprove = () => {
+  const handleApprove = (approverSig: string) => {
     const existing = permits.find((p) => p.id === permitId);
     if (!existing) return;
     saveToStore({
       ...existing,
-      status: 'approved',
+      status: 'APPROVED',
       approvedBy: `${currentUser?.name || 'Admin'} (${currentUser?.role || 'Safety Officer'})`,
       approvedAt: new Date().toLocaleString(),
+      formData: {
+        ...existing.formData,
+        approverSignature: approverSig,
+      },
     });
-    setStatus('approved');
+    setStatus('APPROVED');
+    setApproverSignature(approverSig);
     alert('Permit approved successfully!');
     navigate('/admin');
   };
 
-  const handleReject = () => {
+  const handleReject = (approverSig: string) => {
     const existing = permits.find((p) => p.id === permitId);
     if (!existing) return;
-    saveToStore({ ...existing, status: 'rejected' });
-    setStatus('rejected');
+    saveToStore({
+      ...existing,
+      status: 'REJECTED',
+      formData: {
+        ...existing.formData,
+        approverSignature: approverSig,
+      },
+    });
+    setStatus('REJECTED');
+    setApproverSignature(approverSig);
     alert('Permit rejected.');
     navigate('/admin');
   };
 
-  const isDisabled =
-    status === 'approved' ||
-    status === 'rejected' ||
-    (currentUser?.role === 'Principal Safety Officer' && status === 'pending');
+  const isDisabled = status !== 'DRAFT';
 
   const sectionHeader = (label: string) => (
     <div
       style={{
         color: '#1e3a5f',
-        fontSize: '0.7rem',
+        fontSize: '0.75rem',
         fontWeight: 700,
-        letterSpacing: '0.1em',
-        textTransform: 'uppercase',
+        letterSpacing: '0.05em',
         borderBottom: '1.5px solid #1e3a5f',
         paddingBottom: '4px',
         marginBottom: '10px',
@@ -227,13 +232,13 @@ export const HeatShrink: React.FC<FormProps> = ({ permits, onSetPermits, current
         type="button"
         onClick={onToggle}
         disabled={isDisabled}
-        className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+        className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1 ${
           checked
-            ? 'bg-emerald-600 border border-emerald-700 text-white shadow-sm'
-            : 'bg-gray-105 border border-gray-300 text-gray-655 hover:bg-gray-200'
+            ? 'bg-emerald-600 border-2 border-emerald-700 text-white shadow-sm ring-1 ring-emerald-500/20'
+            : 'bg-white hover:bg-gray-50 border border-gray-300 text-gray-770'
         }`}
       >
-        {checked ? 'Yes' : 'No'}
+        {checked ? '✓ Yes' : '✗ No'}
       </button>
     </div>
   );
@@ -249,6 +254,7 @@ export const HeatShrink: React.FC<FormProps> = ({ permits, onSetPermits, current
       isAdmin={currentUser?.role === 'Principal Safety Officer'}
       onApprove={handleApprove}
       onReject={handleReject}
+      approverSignature={approverSignature}
     >
       {/* DESCRIPTION BANNER */}
       <div
@@ -271,43 +277,43 @@ export const HeatShrink: React.FC<FormProps> = ({ permits, onSetPermits, current
         {sectionHeader('Job Information')}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <label className="text-xs font-bold text-gray-550 block mb-1">PERMIT NUMBER</label>
+            <label className="text-xs font-bold text-gray-700 block mb-1">Permit Number</label>
             <input
               type="text"
               value={permitId}
               readOnly
-              className="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-500 font-mono outline-none"
+              className="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-600 font-mono outline-none"
             />
           </div>
           <div>
-            <label className="text-xs font-bold text-gray-550 block mb-1">DATE</label>
+            <label className="text-xs font-bold text-gray-700 block mb-1">Date</label>
             <input
               type="date"
               value={date}
               onChange={(e) => setDate(e.target.value)}
-              className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-brand-orange"
+              className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-brand-orange text-gray-800"
               disabled={isDisabled}
             />
           </div>
           <div>
-            <label className="text-xs font-bold text-gray-550 block mb-1">CABLE ID</label>
+            <label className="text-xs font-bold text-gray-700 block mb-1">Cable ID</label>
             <input
               type="text"
               value={cableId}
               onChange={(e) => setCableId(e.target.value)}
               placeholder="e.g. XLPE-11kV-CB-04"
-              className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-brand-orange"
+              className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-brand-orange text-gray-800 placeholder-gray-500"
               disabled={isDisabled}
             />
           </div>
           <div>
-            <label className="text-xs font-bold text-gray-550 block mb-1">JOINT LOCATION</label>
+            <label className="text-xs font-bold text-gray-700 block mb-1">Joint Location</label>
             <input
               type="text"
               value={jointLocation}
               onChange={(e) => setJointLocation(e.target.value)}
               placeholder="e.g. Trench Clifton, Block 5"
-              className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-brand-orange"
+              className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-brand-orange text-gray-800 placeholder-gray-500"
               disabled={isDisabled}
             />
           </div>
@@ -350,35 +356,35 @@ export const HeatShrink: React.FC<FormProps> = ({ permits, onSetPermits, current
         {sectionHeader('Materials Used')}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div>
-            <label className="text-xs font-bold text-gray-550 block mb-1">HEAT SHRINK SLEEVE</label>
+            <label className="text-xs font-bold text-gray-700 block mb-1">Heat Shrink Sleeve</label>
             <input
               type="text"
               value={heatShrinkSleeve}
               onChange={(e) => setHeatShrinkSleeve(e.target.value)}
               placeholder="e.g. 3M HVST-1224/8-R"
-              className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-brand-orange"
+              className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-brand-orange text-gray-800 placeholder-gray-500"
               disabled={isDisabled}
             />
           </div>
           <div>
-            <label className="text-xs font-bold text-gray-550 block mb-1">JOINT KIT</label>
+            <label className="text-xs font-bold text-gray-700 block mb-1">Joint Kit</label>
             <input
               type="text"
               value={jointKit}
               onChange={(e) => setJointKit(e.target.value)}
               placeholder="e.g. Raychem 11kV Jointing Kit"
-              className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-brand-orange"
+              className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-brand-orange text-gray-800 placeholder-gray-500"
               disabled={isDisabled}
             />
           </div>
           <div>
-            <label className="text-xs font-bold text-gray-550 block mb-1">CONNECTOR TYPE</label>
+            <label className="text-xs font-bold text-gray-700 block mb-1">Connector Type</label>
             <input
               type="text"
               value={connectorType}
               onChange={(e) => setConnectorType(e.target.value)}
               placeholder="e.g. Compression Lug, Straight-Through"
-              className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-brand-orange"
+              className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-brand-orange text-gray-800 placeholder-gray-500"
               disabled={isDisabled}
             />
           </div>
@@ -404,12 +410,12 @@ export const HeatShrink: React.FC<FormProps> = ({ permits, onSetPermits, current
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <label className="text-xs font-bold text-gray-550 block mb-1">COMPLETION TIME</label>
+            <label className="text-xs font-bold text-gray-700 block mb-1">Completion Time</label>
             <input
               type="time"
               value={completionTime}
               onChange={(e) => setCompletionTime(e.target.value)}
-              className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-brand-orange"
+              className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-brand-orange text-gray-800"
               disabled={isDisabled}
             />
           </div>
@@ -421,14 +427,14 @@ export const HeatShrink: React.FC<FormProps> = ({ permits, onSetPermits, current
         {sectionHeader('Jointing Authorization Sign-Off')}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <SignaturePad
-            label="1. SENIOR CABLE JOINTER"
+            label="1. Senior Cable Jointer"
             role="Senior Cable Jointer"
             onSign={setJointerSig}
             savedSignature={jointerSig}
             disabled={isDisabled}
           />
           <SignaturePad
-            label="2. SITE SHIFT SUPERVISOR"
+            label="2. Site Shift Supervisor"
             role="Shift Jointing Supervisor"
             onSign={setSupervisorSig}
             savedSignature={supervisorSig}

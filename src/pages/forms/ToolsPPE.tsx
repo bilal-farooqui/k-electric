@@ -4,7 +4,7 @@ import { FormWrapper } from '../../components/FormWrapper';
 import { SignaturePad } from '../../components/SignaturePad';
 import { Tooltip } from '../../components/Tooltip';
 import { ShieldCheck, ShieldAlert, Clock } from 'lucide-react';
-import type { Permit } from '../../types/ptw';
+import type { Permit, PermitStatus } from '../../types/ptw';
 
 interface FormProps {
   permits: Permit[];
@@ -19,7 +19,8 @@ export const ToolsPPE: React.FC<FormProps> = ({ permits, onSetPermits, currentUs
   const formCode = 'KE-PTW-TP-02';
 
   const [permitId, setPermitId] = useState('');
-  const [status, setStatus] = useState<'draft' | 'pending' | 'approved' | 'rejected'>('draft');
+  const [status, setStatus] = useState<PermitStatus>('DRAFT');
+  const [approverSignature, setApproverSignature] = useState('');
 
   // Form State
   const [teamLeader, setTeamLeader] = useState('');
@@ -51,7 +52,7 @@ export const ToolsPPE: React.FC<FormProps> = ({ permits, onSetPermits, currentUs
     const existing = editId ? permits.find((p) => p.id === editId) : null;
     if (existing) {
       setPermitId(existing.id);
-      setStatus(existing.status);
+      setStatus(existing.status as PermitStatus);
       const data = existing.formData;
       if (data) {
         setTeamLeader(data.teamLeader || '');
@@ -61,10 +62,11 @@ export const ToolsPPE: React.FC<FormProps> = ({ permits, onSetPermits, currentUs
         setChecklist(data.checklist || {});
         setSignature(data.signature || '');
         setAuthSignature(data.authSignature || '');
+        setApproverSignature(data.approverSignature || '');
       }
     } else {
       setPermitId(`KE-TP-${Math.floor(100000 + Math.random() * 900000)}`);
-      setStatus('draft');
+      setStatus('DRAFT');
       setTeamLeader(currentUser?.name || '');
       setDate(new Date().toISOString().split('T')[0]);
       setFaultId('');
@@ -86,6 +88,7 @@ export const ToolsPPE: React.FC<FormProps> = ({ permits, onSetPermits, currentUs
       });
       setSignature('');
       setAuthSignature('');
+      setApproverSignature('');
     }
   }, [permits, editId, currentUser]);
 
@@ -98,7 +101,7 @@ export const ToolsPPE: React.FC<FormProps> = ({ permits, onSetPermits, currentUs
       id: permitId,
       type: 'tools-ppe',
       title: 'Tools & PPE Checklist',
-      status: 'draft',
+      status: 'DRAFT',
       createdAt: new Date().toLocaleString(),
       submittedBy: teamLeader,
       formData: {
@@ -109,6 +112,7 @@ export const ToolsPPE: React.FC<FormProps> = ({ permits, onSetPermits, currentUs
         checklist,
         signature,
         authSignature,
+        approverSignature,
       },
     };
 
@@ -139,10 +143,7 @@ export const ToolsPPE: React.FC<FormProps> = ({ permits, onSetPermits, currentUs
       return;
     }
 
-    const hasIssues = Object.values(checklist).some(
-      (val) => val === 'damaged' || val === 'missing'
-    );
-    const finalStatus = hasIssues ? 'pending' : 'approved';
+    const finalStatus = 'PENDING_APPROVAL';
 
     const newPermit: Permit = {
       id: permitId,
@@ -151,8 +152,6 @@ export const ToolsPPE: React.FC<FormProps> = ({ permits, onSetPermits, currentUs
       status: finalStatus,
       createdAt: new Date().toLocaleString(),
       submittedBy: teamLeader,
-      approvedBy: finalStatus === 'approved' ? 'Automated System Verification' : undefined,
-      approvedAt: finalStatus === 'approved' ? new Date().toLocaleString() : undefined,
       formData: {
         teamLeader,
         date,
@@ -160,7 +159,8 @@ export const ToolsPPE: React.FC<FormProps> = ({ permits, onSetPermits, currentUs
         workLocation,
         checklist,
         signature,
-        authSignature: finalStatus === 'approved' ? 'STAMP::GREEN::Automated System Verification (System) - Authorized at ' + new Date().toLocaleString() : '',
+        authSignature: '',
+        approverSignature,
       },
     };
 
@@ -176,29 +176,22 @@ export const ToolsPPE: React.FC<FormProps> = ({ permits, onSetPermits, currentUs
     onSetPermits(updated);
     localStorage.setItem('ke_ptw_permits', JSON.stringify(updated));
     setStatus(finalStatus);
-    alert(
-      hasIssues
-        ? 'Checklist submitted with gear concerns. Awaiting Supervisor approval.'
-        : 'Checklist submitted and approved!'
-    );
+    alert('Permit submitted successfully and is now pending safety officer review.');
     navigate('/');
   };
 
-  const handleApprove = () => {
-    if (!authSignature && status === 'pending') {
-      alert('Supervisor signature is required under AUTHORIZATION to approve.');
-      return;
-    }
+  const handleApprove = (approverSig: string) => {
     const existing = permits.find((p) => p.id === permitId);
     if (!existing) return;
     const updatedPermit: Permit = {
       ...existing,
-      status: 'approved',
+      status: 'APPROVED',
       approvedBy: `${currentUser?.name || 'Supervisor'} (${currentUser?.role || 'Safety Officer'})`,
       approvedAt: new Date().toLocaleString(),
       formData: {
         ...existing.formData,
-        authSignature,
+        authSignature: approverSig,
+        approverSignature: approverSig,
       }
     };
     const index = permits.findIndex((p) => p.id === permitId);
@@ -209,22 +202,24 @@ export const ToolsPPE: React.FC<FormProps> = ({ permits, onSetPermits, currentUs
       updated = [updatedPermit, ...permits];
     }
     onSetPermits(updated);
-    setStatus('approved');
+    setStatus('APPROVED');
+    setApproverSignature(approverSig);
     alert('Permit approved successfully by Supervisor!');
     navigate('/admin');
   };
 
-  const handleReject = () => {
+  const handleReject = (approverSig: string) => {
     const existing = permits.find((p) => p.id === permitId);
     if (!existing) return;
     const updatedPermit: Permit = {
       ...existing,
-      status: 'rejected',
+      status: 'REJECTED',
       approvedBy: `${currentUser?.name || 'Supervisor'} (${currentUser?.role || 'Safety Officer'})`,
       approvedAt: new Date().toLocaleString(),
       formData: {
         ...existing.formData,
-        authSignature,
+        authSignature: approverSig,
+        approverSignature: approverSig,
       }
     };
     const index = permits.findIndex((p) => p.id === permitId);
@@ -235,7 +230,8 @@ export const ToolsPPE: React.FC<FormProps> = ({ permits, onSetPermits, currentUs
       updated = [updatedPermit, ...permits];
     }
     onSetPermits(updated);
-    setStatus('rejected');
+    setStatus('REJECTED');
+    setApproverSignature(approverSig);
     alert('Permit rejected.');
     navigate('/admin');
   };
@@ -259,13 +255,13 @@ export const ToolsPPE: React.FC<FormProps> = ({ permits, onSetPermits, currentUs
     { key: 'testingMeter', label: 'Testing Meter', tooltip: 'Digital multimeter or insulation megger calibrated.' },
   ];
 
-  const isAuthorizerDisabled = status === 'approved' || status === 'rejected' || currentUser?.role !== 'Principal Safety Officer';
-  const isDisabled = status === 'approved' || status === 'rejected' || (currentUser?.role === 'Principal Safety Officer' && status === 'pending');
+  const isAuthorizerDisabled = true;
+  const isDisabled = status !== 'DRAFT';
 
   // Find approval data
   const existingPermit = permits.find((p) => p.id === permitId);
-  const approvedByVal = existingPermit?.approvedBy || (status === 'pending' && currentUser?.role === 'Principal Safety Officer' ? `${currentUser?.name} (${currentUser?.role || 'Safety Officer'})` : 'Awaiting Approval');
-  const approvedAtVal = existingPermit?.approvedAt || (status === 'pending' && currentUser?.role === 'Principal Safety Officer' ? new Date().toLocaleDateString() + ' ' + new Date().toLocaleTimeString() : 'Pending Review');
+  const approvedByVal = existingPermit?.approvedBy || (status === 'PENDING_APPROVAL' && currentUser?.role === 'Principal Safety Officer' ? `${currentUser?.name} (${currentUser?.role || 'Safety Officer'})` : 'Awaiting Approval');
+  const approvedAtVal = existingPermit?.approvedAt || (status === 'PENDING_APPROVAL' && currentUser?.role === 'Principal Safety Officer' ? new Date().toLocaleDateString() + ' ' + new Date().toLocaleTimeString() : 'Pending Review');
 
   return (
     <FormWrapper
@@ -278,60 +274,61 @@ export const ToolsPPE: React.FC<FormProps> = ({ permits, onSetPermits, currentUs
       isAdmin={currentUser?.role === 'Principal Safety Officer'}
       onApprove={handleApprove}
       onReject={handleReject}
+      approverSignature={approverSignature}
     >
       {/* SECTION 1: GENERAL INFORMATION */}
       <div className="space-y-4">
-        <h3 className="text-xs font-bold text-brand-navy tracking-wider uppercase border-b border-gray-150 pb-2">
-          GENERAL INFORMATION
+        <h3 className="text-xs font-bold text-brand-navy tracking-wider border-b border-gray-150 pb-2">
+          General Information
         </h3>
         
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
           <div>
-            <label className="text-xs font-bold text-gray-550 block mb-1">TEAM LEADER</label>
+            <label className="text-xs font-bold text-gray-700 block mb-1">Team Leader</label>
             <input
               type="text"
               required
               value={teamLeader}
               onChange={(e) => setTeamLeader(e.target.value)}
-              className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-brand-orange text-gray-700 font-medium disabled:bg-gray-50"
+              className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-brand-orange text-gray-800 font-medium disabled:bg-gray-50 placeholder-gray-500"
               disabled={isDisabled}
             />
           </div>
 
           <div>
-            <label className="text-xs font-bold text-gray-550 block mb-1">DATE</label>
+            <label className="text-xs font-bold text-gray-700 block mb-1">Date</label>
             <input
               type="date"
               required
               value={date}
               onChange={(e) => setDate(e.target.value)}
-              className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-brand-orange text-gray-700 font-medium disabled:bg-gray-50"
+              className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-brand-orange text-gray-800 font-medium disabled:bg-gray-55"
               disabled={isDisabled}
             />
           </div>
 
           <div>
-            <label className="text-xs font-bold text-gray-550 block mb-1">FAULT ID</label>
+            <label className="text-xs font-bold text-gray-700 block mb-1">Fault ID</label>
             <input
               type="text"
               required
               value={faultId}
               onChange={(e) => setFaultId(e.target.value)}
               placeholder="e.g. FLT-9028A"
-              className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-brand-orange text-gray-700 font-medium disabled:bg-gray-50"
+              className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-brand-orange text-gray-800 font-medium disabled:bg-gray-55 placeholder-gray-550"
               disabled={isDisabled}
             />
           </div>
 
           <div>
-            <label className="text-xs font-bold text-gray-550 block mb-1">WORK LOCATION</label>
+            <label className="text-xs font-bold text-gray-700 block mb-1">Work Location</label>
             <input
               type="text"
               required
               value={workLocation}
               onChange={(e) => setWorkLocation(e.target.value)}
               placeholder="e.g. Substation Feed B"
-              className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-brand-orange text-gray-700 font-medium disabled:bg-gray-50"
+              className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-brand-orange text-gray-800 font-medium disabled:bg-gray-55 placeholder-gray-550"
               disabled={isDisabled}
             />
           </div>
@@ -342,8 +339,8 @@ export const ToolsPPE: React.FC<FormProps> = ({ permits, onSetPermits, currentUs
 
       {/* SECTION 2: PPE CHECKLIST */}
       <div className="space-y-4">
-        <h3 className="text-xs font-bold text-brand-navy tracking-wider uppercase border-b border-gray-150 pb-2">
-          PPE CHECKLIST
+        <h3 className="text-xs font-bold text-brand-navy tracking-wider border-b border-gray-150 pb-2">
+          PPE Checklist
         </h3>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -364,17 +361,17 @@ export const ToolsPPE: React.FC<FormProps> = ({ permits, onSetPermits, currentUs
                     type="button"
                     onClick={() => toggleCheck(item.key, opt)}
                     disabled={isDisabled}
-                    className={`px-2.5 py-1.5 rounded-lg text-[10px] font-bold uppercase transition-all cursor-pointer ${
+                    className={`px-2.5 py-1.5 rounded-lg text-[10px] font-bold transition-all cursor-pointer flex items-center gap-1 ${
                       checklist[item.key] === opt
                         ? opt === 'good'
-                          ? 'bg-emerald-600 border border-emerald-700 text-white shadow-sm'
+                          ? 'bg-emerald-600 border-2 border-emerald-700 text-white shadow-sm ring-1 ring-emerald-500/20'
                           : opt === 'damaged'
-                          ? 'bg-red-650 border border-red-700 text-white shadow-sm'
-                          : 'bg-amber-500 border border-amber-600 text-white shadow-sm'
-                        : 'bg-gray-100 hover:bg-gray-200 border border-gray-300 text-gray-700'
+                          ? 'bg-red-650 border-2 border-red-800 text-white shadow-sm ring-1 ring-red-500/20'
+                          : 'bg-amber-600 border-2 border-amber-700 text-white shadow-sm ring-1 ring-amber-500/20'
+                        : 'bg-white hover:bg-gray-50 border border-gray-300 text-gray-705'
                     }`}
                   >
-                    {opt}
+                    {opt === 'good' ? '✓ Good' : opt === 'damaged' ? '✗ Damaged' : '⚠ Missing'}
                   </button>
                 ))}
               </div>
@@ -387,8 +384,8 @@ export const ToolsPPE: React.FC<FormProps> = ({ permits, onSetPermits, currentUs
 
       {/* SECTION 3: TOOLS CHECKLIST */}
       <div className="space-y-4">
-        <h3 className="text-xs font-bold text-brand-navy tracking-wider uppercase border-b border-gray-150 pb-2">
-          TOOLS CHECKLIST
+        <h3 className="text-xs font-bold text-brand-navy tracking-wider border-b border-gray-150 pb-2">
+          Tools Checklist
         </h3>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -409,17 +406,17 @@ export const ToolsPPE: React.FC<FormProps> = ({ permits, onSetPermits, currentUs
                     type="button"
                     onClick={() => toggleCheck(item.key, opt)}
                     disabled={isDisabled}
-                    className={`px-2.5 py-1.5 rounded-lg text-[10px] font-bold uppercase transition-all cursor-pointer ${
+                    className={`px-2.5 py-1.5 rounded-lg text-[10px] font-bold transition-all cursor-pointer flex items-center gap-1 ${
                       checklist[item.key] === opt
                         ? opt === 'good'
-                          ? 'bg-emerald-600 border border-emerald-700 text-white shadow-sm'
+                          ? 'bg-emerald-600 border-2 border-emerald-700 text-white shadow-sm ring-1 ring-emerald-500/20'
                           : opt === 'damaged'
-                          ? 'bg-red-650 border border-red-700 text-white shadow-sm'
-                          : 'bg-amber-500 border border-amber-600 text-white shadow-sm'
-                        : 'bg-gray-100 hover:bg-gray-200 border border-gray-300 text-gray-700'
+                          ? 'bg-red-650 border-2 border-red-800 text-white shadow-sm ring-1 ring-red-500/20'
+                          : 'bg-amber-600 border-2 border-amber-700 text-white shadow-sm ring-1 ring-amber-500/20'
+                        : 'bg-white hover:bg-gray-50 border border-gray-300 text-gray-705'
                     }`}
                   >
-                    {opt}
+                    {opt === 'good' ? '✓ Good' : opt === 'damaged' ? '✗ Damaged' : '⚠ Missing'}
                   </button>
                 ))}
               </div>
@@ -427,33 +424,32 @@ export const ToolsPPE: React.FC<FormProps> = ({ permits, onSetPermits, currentUs
           ))}
         </div>
       </div>
-
       <hr className="border-t-2 border-brand-primary/20 my-6" />
-
-      {/* SECTION 4: CONDITION */}
+ 
+      {/* SECTION 4: Condition */}
       <div className="space-y-4">
-        <h3 className="text-xs font-bold text-brand-navy tracking-wider uppercase border-b border-gray-150 pb-2">
-          CONDITION
+        <h3 className="text-xs font-bold text-brand-navy tracking-wider border-b border-gray-150 pb-2">
+          Condition
         </h3>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
           <div className="flex items-center gap-2.5 bg-emerald-50/50 border border-emerald-150 p-3 rounded-xl text-gray-700">
             <span className="h-4.5 w-4.5 rounded-lg bg-emerald-600 text-white font-bold flex items-center justify-center text-[9px]">G</span>
             <div>
-              <span className="font-bold text-emerald-800 block">GOOD</span>
+              <span className="font-bold text-emerald-800 block">Good</span>
               Gear is certified, undamaged, and safe for live operations.
             </div>
           </div>
           <div className="flex items-center gap-2.5 bg-red-50/50 border border-red-150 p-3 rounded-xl text-gray-700">
             <span className="h-4.5 w-4.5 rounded-lg bg-red-650 text-white font-bold flex items-center justify-center text-[9px]">D</span>
             <div>
-              <span className="font-bold text-red-800 block">DAMAGED</span>
+              <span className="font-bold text-red-800 block">Damaged</span>
               Gear shows signs of wear/cracks. Requires supervisor sign-off.
             </div>
           </div>
           <div className="flex items-center gap-2.5 bg-amber-50/50 border border-amber-150 p-3 rounded-xl text-gray-700">
             <span className="h-4.5 w-4.5 rounded-lg bg-amber-500 text-white font-bold flex items-center justify-center text-[9px]">M</span>
             <div>
-              <span className="font-bold text-amber-800 block">MISSING</span>
+              <span className="font-bold text-amber-800 block">Missing</span>
               Gear is absent. Operations restricted until replacement sourced.
             </div>
           </div>
@@ -462,14 +458,14 @@ export const ToolsPPE: React.FC<FormProps> = ({ permits, onSetPermits, currentUs
 
       <hr className="border-t-2 border-brand-primary/20 my-6" />
 
-      {/* SUBMISSION / TEAM LEADER SIGN-OFF */}
+      {/* Team Leader Sign-off */}
       <div className="space-y-4">
-        <h3 className="text-xs font-bold text-brand-navy tracking-wider uppercase border-b border-gray-150 pb-2">
-          TEAM LEADER SIGN-OFF
+        <h3 className="text-xs font-bold text-brand-navy tracking-wider border-b border-gray-150 pb-2">
+          Team Leader Sign-off
         </h3>
         <div className="max-w-md">
           <SignaturePad
-            label="TEAM LEADER SIGNATURE"
+            label="Team Leader Signature"
             role="Team Leader / Dispatcher"
             onSign={setSignature}
             savedSignature={signature}
@@ -480,47 +476,47 @@ export const ToolsPPE: React.FC<FormProps> = ({ permits, onSetPermits, currentUs
 
       <hr className="border-t-2 border-brand-primary/20 my-6" />
 
-      {/* SECTION 5: AUTHORIZATION */}
+      {/* SECTION 5: Authorization */}
       <div className="space-y-4">
-        <h3 className="text-xs font-bold text-brand-navy tracking-wider uppercase border-b border-gray-150 pb-2">
-          AUTHORIZATION
+        <h3 className="text-xs font-bold text-brand-navy tracking-wider border-b border-gray-150 pb-2">
+          Authorization
         </h3>
         
         <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
           <div>
-            <label className="text-xs font-bold text-gray-550 block mb-1">APPROVED BY</label>
+            <label className="text-xs font-bold text-gray-700 block mb-1">Approved By</label>
             <div className="w-full bg-gray-50 border border-gray-300 rounded-lg px-3 py-2 text-sm font-semibold text-gray-700 h-[38px] flex items-center">
               {approvedByVal}
             </div>
           </div>
 
           <div>
-            <label className="text-xs font-bold text-gray-550 block mb-1">TIME</label>
+            <label className="text-xs font-bold text-gray-700 block mb-1">Time</label>
             <div className="w-full bg-gray-50 border border-gray-300 rounded-lg px-3 py-2 text-sm font-semibold text-gray-700 h-[38px] flex items-center">
               {approvedAtVal}
             </div>
           </div>
 
           <div>
-            <label className="text-xs font-bold text-gray-550 block mb-1">STATUS</label>
-            <div className={`w-full border rounded-lg px-3 py-2 text-xs font-bold uppercase h-[38px] flex items-center justify-center gap-1.5 ${
-              status === 'approved' 
-                ? 'bg-emerald-50 border-emerald-300 text-emerald-800' 
-                : status === 'rejected' 
-                ? 'bg-red-50 border-red-300 text-red-800' 
-                : 'bg-amber-50 border-amber-300 text-amber-800 animate-pulse'
+            <label className="text-xs font-bold text-gray-700 block mb-1">Status</label>
+            <div className={`w-full border rounded-lg px-3 py-2 text-xs font-bold h-[38px] flex items-center justify-center gap-1.5 ${
+              status === 'APPROVED' 
+                ? 'bg-emerald-50 border-emerald-305 text-emerald-800' 
+                : status === 'REJECTED' 
+                ? 'bg-red-50 border-red-350 text-red-800' 
+                : 'bg-amber-50 border-amber-305 text-amber-800 animate-pulse'
             }`}>
-              {status === 'approved' ? (
+              {status === 'APPROVED' ? (
                 <>
-                  <ShieldCheck className="h-4 w-4 text-emerald-600" /> LEVEL 4 SIGNED
+                  <ShieldCheck className="h-4 w-4 text-emerald-600" /> Level 4 Signed
                 </>
-              ) : status === 'rejected' ? (
+              ) : status === 'REJECTED' ? (
                 <>
-                  <ShieldAlert className="h-4 w-4 text-red-650" /> VERIFICATION FAILED
+                  <ShieldAlert className="h-4 w-4 text-red-650" /> Verification Failed
                 </>
               ) : (
                 <>
-                  <Clock className="h-4 w-4 text-amber-600" /> PENDING RE-SIGN
+                  <Clock className="h-4 w-4 text-amber-600" /> Pending Re-sign
                 </>
               )}
             </div>
@@ -529,10 +525,10 @@ export const ToolsPPE: React.FC<FormProps> = ({ permits, onSetPermits, currentUs
 
         <div className="mt-4 max-w-md">
           <SignaturePad
-            label="SUPERVISOR SIGNATURE"
+            label="Supervisor Signature"
             role="Authorized Supervisor"
             onSign={setAuthSignature}
-            savedSignature={authSignature || (status === 'approved' && approvedByVal.includes('Automated System') ? 'STAMP::GREEN::Automated System Verification (System) - Authorized at ' + approvedAtVal : undefined)}
+            savedSignature={authSignature || (status === 'APPROVED' && approvedByVal.includes('Automated System') ? 'STAMP::GREEN::Automated System Verification (System) - Authorized at ' + approvedAtVal : undefined)}
             disabled={isAuthorizerDisabled}
           />
         </div>

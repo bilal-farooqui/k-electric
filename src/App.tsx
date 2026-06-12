@@ -15,6 +15,7 @@ import { Excavation } from './pages/forms/Excavation';
 import { ConfinedSpace } from './pages/forms/ConfinedSpace';
 import { HeatShrink } from './pages/forms/HeatShrink';
 import { Auth } from './pages/Auth';
+import { SubmissionHistory } from './pages/SubmissionHistory';
 import { ToastContainer } from './components/ToastContainer';
 import type { Permit, Notification, UserProfile } from './types/ptw';
 
@@ -25,7 +26,7 @@ const initialMockPermits: Permit[] = [
     id: 'KE-VI-384920',
     type: 'vehicle-inspection',
     title: 'Vehicle Inspection Checklist',
-    status: 'approved',
+    status: 'APPROVED',
     createdAt: new Date(Date.now() - 3600000 * 4).toLocaleString(), // 4 hours ago
     submittedBy: 'Arif Khan',
     approvedBy: 'Automated System Verification',
@@ -55,7 +56,7 @@ const initialMockPermits: Permit[] = [
     id: 'KE-LI-940284',
     type: 'line-isolation',
     title: 'Line Isolation PTW',
-    status: 'pending',
+    status: 'PENDING_APPROVAL',
     createdAt: new Date(Date.now() - 3600000 * 2).toLocaleString(), // 2 hours ago
     submittedBy: 'Kamran Malik',
     formData: {
@@ -139,7 +140,11 @@ function App() {
       changed.forEach((permit) => {
         fetch('/api/permits', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 
+            'Content-Type': 'application/json',
+            'x-user-role': activeRoleMode || 'employee',
+            'x-user-username': activeProfile?.username || ''
+          },
           body: JSON.stringify(permit),
         })
           .then((res) => {
@@ -353,7 +358,7 @@ function App() {
                   path="/admin"
                   element={
                     isAdminAccount ? (
-                      <Overview permits={permits} onSetPermits={setPermits} currentUser={activeProfile} />
+                      <Overview permits={permits} currentUser={activeProfile} />
                     ) : (
                       <Navigate to="/" replace />
                     )
@@ -368,6 +373,17 @@ function App() {
                       currentUser={activeProfile}
                       currentUserUsername={currentUser.username}
                       onUpdateProfile={handleUpdateProfile}
+                    />
+                  }
+                />
+
+                {/* Submission History Page */}
+                <Route
+                  path="/history"
+                  element={
+                    <SubmissionHistory
+                      currentUser={activeProfile}
+                      permits={permits}
                     />
                   }
                 />

@@ -35,7 +35,7 @@ export const Profile: React.FC<ProfileProps> = ({
         name,
         badgeId,
       });
-      alert('Profile details successfully synchronized with MongoDB database!');
+      alert('Profile details updated successfully!');
     } catch (err) {
       console.error(err);
       alert('Failed to save profile details.');
@@ -48,19 +48,19 @@ export const Profile: React.FC<ProfileProps> = ({
     <div className="space-y-6 max-w-4xl mx-auto">
       {/* Title */}
       <div>
-        <h1 className="text-2xl font-bold tracking-tight text-brand-navy font-display uppercase">
+        <h1 className="text-2xl font-bold tracking-tight text-brand-navy font-display">
           Profile Settings
         </h1>
-        <p className="text-gray-500 text-sm mt-0.5">
+        <p className="text-gray-600 text-sm mt-0.5">
           Update your display name and badge ID. Role and clearance level are managed by the system administrator.
         </p>
       </div>
 
       {/* Main Profile Card Grid */}
-      <form onSubmit={handleSave} className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <form onSubmit={handleSave} className="grid grid-cols-1 md:grid-cols-3 gap-6 items-stretch">
         
         {/* Left Column: Avatar & Digital ID Card */}
-        <div className="bg-brand-primary text-white p-6 rounded-2xl shadow-md flex flex-col items-center justify-between text-center relative overflow-hidden border border-gray-800 h-[380px]">
+        <div className="bg-brand-primary text-white p-6 rounded-2xl shadow-md flex flex-col items-center justify-between text-center relative overflow-hidden border border-gray-800">
           {/* Subtle design element */}
           <div className="absolute top-0 right-0 w-32 h-32 bg-brand-accent/5 rounded-full blur-2xl pointer-events-none" />
           
@@ -77,13 +77,13 @@ export const Profile: React.FC<ProfileProps> = ({
             </div>
           </div>
 
-          <div className="w-full bg-black/30 border border-white/5 rounded-xl p-4 mt-4 text-left space-y-2 text-xs font-mono">
+          <div className="w-full bg-black/30 border border-white/5 rounded-xl p-4 mt-6 text-left space-y-2 text-xs font-mono">
             <div className="flex justify-between border-b border-white/5 pb-1.5">
-              <span className="text-gray-400">Badge ID:</span>
+              <span className="text-gray-350">Badge ID:</span>
               <span className="text-brand-accent font-bold">{badgeId}</span>
             </div>
             <div className="flex justify-between">
-              <span className="text-gray-400">Clearance:</span>
+              <span className="text-gray-350">Clearance:</span>
               <span className="text-emerald-400 font-bold uppercase flex items-center gap-0.5">
                 <Shield className="h-3 w-3" /> {currentUser.role === 'Principal Safety Officer' ? 'Lvl 4 Admin' : 'Lvl 2 Field'}
               </span>
@@ -94,29 +94,29 @@ export const Profile: React.FC<ProfileProps> = ({
         {/* Right Column: Contact Details & Workspace Roles */}
         <div className="bg-white border border-gray-200 p-6 rounded-2xl shadow-xs md:col-span-2 flex flex-col justify-between gap-6">
           <div className="space-y-6">
-            <h3 className="text-xs font-bold text-gray-500 uppercase tracking-widest border-b border-gray-150 pb-2 flex items-center gap-1.5">
+            <h3 className="text-xs font-bold text-gray-700 tracking-wider border-b border-gray-150 pb-2 flex items-center gap-1.5">
               <Building className="h-4 w-4 text-brand-navy" /> Profile Information
             </h3>
             
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <label className="text-[10px] font-bold text-gray-550 block mb-1">FULL NAME</label>
+                <label className="text-[10px] font-bold text-gray-600 block mb-1">Full Name</label>
                 <input
                   type="text"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-xs font-semibold outline-none focus:border-brand-orange"
+                  className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-xs font-semibold outline-none focus:border-brand-orange text-gray-800 placeholder-gray-500"
                   placeholder="e.g. Arif Khan"
                 />
               </div>
 
               <div>
-                <label className="text-[10px] font-bold text-gray-550 block mb-1">BADGE ID</label>
+                <label className="text-[10px] font-bold text-gray-600 block mb-1">Badge ID</label>
                 <input
                   type="text"
                   value={badgeId}
                   onChange={(e) => setBadgeId(e.target.value)}
-                  className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-xs font-semibold outline-none focus:border-brand-orange"
+                  className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-xs font-semibold outline-none focus:border-brand-orange text-gray-800 placeholder-gray-500"
                   placeholder="e.g. KE-0284"
                 />
               </div>
@@ -124,18 +124,18 @@ export const Profile: React.FC<ProfileProps> = ({
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs font-semibold text-gray-600 pt-2">
-              <div className="flex items-center gap-3 bg-gray-50 p-3 rounded-xl border border-gray-100">
-                <MapPin className="h-4.5 w-4.5 text-gray-400 shrink-0" />
+              <div className="flex items-center gap-3 bg-gray-55 p-3 rounded-xl border border-gray-150">
+                <MapPin className="h-4.5 w-4.5 text-gray-500 shrink-0" />
                 <div>
-                  <span className="text-gray-400 block text-[9px] uppercase tracking-wider">Subdivision / Grid</span>
+                  <span className="text-gray-500 block text-[9px] tracking-wider">Subdivision / Grid</span>
                   <span className="text-brand-navy">KE Central Grid Station</span>
                 </div>
               </div>
               
-              <div className="flex items-center gap-3 bg-gray-50 p-3 rounded-xl border border-gray-100">
-                <Award className="h-4.5 w-4.5 text-gray-400 shrink-0" />
+              <div className="flex items-center gap-3 bg-gray-55 p-3 rounded-xl border border-gray-150">
+                <Award className="h-4.5 w-4.5 text-gray-500 shrink-0" />
                 <div>
-                  <span className="text-gray-400 block text-[9px] uppercase tracking-wider">Clearance Status</span>
+                  <span className="text-gray-500 block text-[9px] tracking-wider">Clearance Status</span>
                   <span className="text-brand-navy">{currentUser.role === 'Principal Safety Officer' ? 'Approver & Signatory' : 'Submitter & Operator'}</span>
                 </div>
               </div>
@@ -143,7 +143,7 @@ export const Profile: React.FC<ProfileProps> = ({
           </div>
 
           <div className="flex justify-between items-center border-t border-gray-150 pt-4 mt-auto">
-            <div className="text-[11px] text-gray-450 flex items-center gap-1.5">
+            <div className="text-[11px] text-gray-600 flex items-center gap-1.5">
               <Key className="h-3.5 w-3.5 text-brand-navy" /> Role is managed by utility security systems.
             </div>
             <button

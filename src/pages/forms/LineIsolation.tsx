@@ -3,7 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { FormWrapper } from '../../components/FormWrapper';
 import { SignaturePad } from '../../components/SignaturePad';
 import { Tooltip } from '../../components/Tooltip';
-import type { Permit } from '../../types/ptw';
+import type { Permit, PermitStatus } from '../../types/ptw';
 
 interface FormProps {
   permits: Permit[];
@@ -18,7 +18,8 @@ export const LineIsolation: React.FC<FormProps> = ({ permits, onSetPermits, curr
   const formCode = 'KE-PTW-LI-06';
 
   const [permitId, setPermitId] = useState('');
-  const [status, setStatus] = useState<'draft' | 'pending' | 'approved' | 'rejected'>('draft');
+  const [status, setStatus] = useState<PermitStatus>('DRAFT');
+  const [approverSignature, setApproverSignature] = useState('');
 
   // Form State
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
@@ -48,7 +49,7 @@ export const LineIsolation: React.FC<FormProps> = ({ permits, onSetPermits, curr
     const existing = editId ? permits.find((p) => p.id === editId) : null;
     if (existing) {
       setPermitId(existing.id);
-      setStatus(existing.status);
+      setStatus(existing.status as PermitStatus);
       const data = existing.formData;
       if (data) {
         setDate(data.date || '');
@@ -64,10 +65,11 @@ export const LineIsolation: React.FC<FormProps> = ({ permits, onSetPermits, curr
         setIssuerSig(data.issuerSig || '');
         setReceiverSig(data.receiverSig || '');
         setAuthorizerSig(data.authorizerSig || '');
+        setApproverSignature(data.approverSignature || '');
       }
     } else {
       setPermitId(`KE-LI-${Math.floor(100000 + Math.random() * 900000)}`);
-      setStatus('draft');
+      setStatus('DRAFT');
       setDate(new Date().toISOString().split('T')[0]);
       setFeederName('');
       setIsolatingSubstation('');
@@ -87,6 +89,7 @@ export const LineIsolation: React.FC<FormProps> = ({ permits, onSetPermits, curr
       setIssuerSig('');
       setReceiverSig('');
       setAuthorizerSig('');
+      setApproverSignature('');
     }
   }, [permits, editId, currentUser]);
 
@@ -99,7 +102,7 @@ export const LineIsolation: React.FC<FormProps> = ({ permits, onSetPermits, curr
       id: permitId,
       type: 'line-isolation',
       title: '6. LINE ISOLATION PTW',
-      status: 'draft',
+      status: 'DRAFT',
       createdAt: new Date().toLocaleString(),
       submittedBy: isolationDoneBy || currentUser?.name || 'Operator',
       formData: {
@@ -116,6 +119,7 @@ export const LineIsolation: React.FC<FormProps> = ({ permits, onSetPermits, curr
         issuerSig,
         receiverSig,
         authorizerSig,
+        approverSignature,
       },
     };
 
@@ -146,8 +150,7 @@ export const LineIsolation: React.FC<FormProps> = ({ permits, onSetPermits, curr
       return;
     }
 
-    const allChecked = Object.values(checklist).every((val) => val === true);
-    const finalStatus = (allChecked && zeroVoltageConfirmed && groundingCompleted) ? 'approved' : 'pending';
+    const finalStatus = 'PENDING_APPROVAL';
 
     const newPermit: Permit = {
       id: permitId,
@@ -156,8 +159,6 @@ export const LineIsolation: React.FC<FormProps> = ({ permits, onSetPermits, curr
       status: finalStatus,
       createdAt: new Date().toLocaleString(),
       submittedBy: isolationDoneBy || currentUser?.name || 'Operator',
-      approvedBy: finalStatus === 'approved' ? 'Control Room Self-Verification' : undefined,
-      approvedAt: finalStatus === 'approved' ? new Date().toLocaleString() : undefined,
       formData: {
         date,
         feederName,
@@ -172,6 +173,7 @@ export const LineIsolation: React.FC<FormProps> = ({ permits, onSetPermits, curr
         issuerSig,
         receiverSig,
         authorizerSig,
+        approverSignature,
       },
     };
 
@@ -187,22 +189,22 @@ export const LineIsolation: React.FC<FormProps> = ({ permits, onSetPermits, curr
     onSetPermits(updated);
     localStorage.setItem('ke_ptw_permits', JSON.stringify(updated));
     setStatus(finalStatus);
-    alert(
-      finalStatus === 'approved'
-        ? 'Line Isolation permit authorized!'
-        : 'Permit submitted. Awaiting complete safety confirmation and approvals.'
-    );
+    alert('Permit submitted successfully and is now pending safety officer review.');
     navigate('/');
   };
 
-  const handleApprove = () => {
+  const handleApprove = (approverSig: string) => {
     const existing = permits.find((p) => p.id === permitId);
     if (!existing) return;
     const updatedPermit: Permit = {
       ...existing,
-      status: 'approved',
+      status: 'APPROVED',
       approvedBy: `${currentUser?.name || 'Safety Officer'} (${currentUser?.role || 'Safety Officer'})`,
       approvedAt: new Date().toLocaleString(),
+      formData: {
+        ...existing.formData,
+        approverSignature: approverSig,
+      }
     };
     const index = permits.findIndex((p) => p.id === permitId);
     let updated = [...permits];
@@ -212,17 +214,22 @@ export const LineIsolation: React.FC<FormProps> = ({ permits, onSetPermits, curr
       updated = [updatedPermit, ...permits];
     }
     onSetPermits(updated);
-    setStatus('approved');
+    setStatus('APPROVED');
+    setApproverSignature(approverSig);
     alert('Permit approved successfully!');
     navigate('/admin');
   };
 
-  const handleReject = () => {
+  const handleReject = (approverSig: string) => {
     const existing = permits.find((p) => p.id === permitId);
     if (!existing) return;
     const updatedPermit: Permit = {
       ...existing,
-      status: 'rejected',
+      status: 'REJECTED',
+      formData: {
+        ...existing.formData,
+        approverSignature: approverSig,
+      }
     };
     const index = permits.findIndex((p) => p.id === permitId);
     let updated = [...permits];
@@ -232,7 +239,8 @@ export const LineIsolation: React.FC<FormProps> = ({ permits, onSetPermits, curr
       updated = [updatedPermit, ...permits];
     }
     onSetPermits(updated);
-    setStatus('rejected');
+    setStatus('REJECTED');
+    setApproverSignature(approverSig);
     alert('Permit rejected.');
     navigate('/admin');
   };
@@ -245,9 +253,9 @@ export const LineIsolation: React.FC<FormProps> = ({ permits, onSetPermits, curr
     { key: 'voltageTested', label: 'Voltage Tested', tooltip: 'Verify lines are tested dead with a voltage detector.' },
   ];
 
-  const isAdmin = currentUser?.label === 'admin';
-  const isAuthorizerDisabled = status === 'approved' || status === 'rejected' || !isAdmin;
-  const isDisabled = status === 'approved' || status === 'rejected' || (isAdmin && status === 'pending');
+  const isAdmin = currentUser?.role === 'Principal Safety Officer';
+  const isAuthorizerDisabled = true;
+  const isDisabled = status !== 'DRAFT';
 
   return (
     <FormWrapper
@@ -260,55 +268,56 @@ export const LineIsolation: React.FC<FormProps> = ({ permits, onSetPermits, curr
       isAdmin={isAdmin}
       onApprove={handleApprove}
       onReject={handleReject}
+      approverSignature={approverSignature}
     >
       {/* SECTION 1: MAIN DETAILS */}
       <div className="space-y-4">
-        <h3 className="text-xs font-bold text-brand-navy tracking-wider uppercase border-b border-gray-150 pb-2">
-          MAIN DETAILS
+        <h3 className="text-xs font-bold text-brand-navy tracking-wider border-b border-gray-150 pb-2">
+          Main Details
         </h3>
         
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
           <div>
-            <label className="text-xs font-bold text-gray-550 block mb-1">Isolation Permit No</label>
-            <div className="w-full bg-gray-55 border border-gray-300 rounded-lg px-3 py-2 text-sm font-semibold text-gray-700 h-[38px] flex items-center">
+            <label className="text-xs font-bold text-gray-700 block mb-1">Isolation Permit No</label>
+            <div className="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-sm font-semibold text-gray-700 h-[38px] flex items-center">
               {permitId}
             </div>
           </div>
 
           <div>
-            <label className="text-xs font-bold text-gray-550 block mb-1">Date</label>
+            <label className="text-xs font-bold text-gray-700 block mb-1">Date</label>
             <input
               type="date"
               required
               value={date}
               onChange={(e) => setDate(e.target.value)}
-              className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-brand-orange text-gray-700 font-medium disabled:bg-gray-55"
+              className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-brand-orange text-gray-800 font-medium disabled:bg-gray-50"
               disabled={isDisabled}
             />
           </div>
 
           <div>
-            <label className="text-xs font-bold text-gray-550 block mb-1">Substation Name</label>
+            <label className="text-xs font-bold text-gray-700 block mb-1">Substation Name</label>
             <input
               type="text"
               required
               value={isolatingSubstation}
               onChange={(e) => setIsolatingSubstation(e.target.value)}
               placeholder="e.g. Clifton Grid Station"
-              className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-brand-orange text-gray-700 font-medium disabled:bg-gray-55"
+              className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-brand-orange text-gray-800 font-medium disabled:bg-gray-50 placeholder-gray-500"
               disabled={isDisabled}
             />
           </div>
 
           <div>
-            <label className="text-xs font-bold text-gray-550 block mb-1">Feeder Name</label>
+            <label className="text-xs font-bold text-gray-700 block mb-1">Feeder Name</label>
             <input
               type="text"
               required
               value={feederName}
               onChange={(e) => setFeederName(e.target.value)}
               placeholder="e.g. Feeder Clifton 11kV"
-              className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-brand-orange text-gray-700 font-medium disabled:bg-gray-55"
+              className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-brand-orange text-gray-800 font-medium disabled:bg-gray-55 placeholder-gray-500"
               disabled={isDisabled}
             />
           </div>
@@ -319,8 +328,8 @@ export const LineIsolation: React.FC<FormProps> = ({ permits, onSetPermits, curr
 
       {/* SECTION 2: ISOLATION INFORMATION */}
       <div className="space-y-4">
-        <h3 className="text-xs font-bold text-brand-navy tracking-wider uppercase border-b border-gray-150 pb-2">
-          ISOLATION INFORMATION
+        <h3 className="text-xs font-bold text-brand-navy tracking-wider border-b border-gray-150 pb-2">
+          Isolation Information
         </h3>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -338,13 +347,13 @@ export const LineIsolation: React.FC<FormProps> = ({ permits, onSetPermits, curr
                 type="button"
                 onClick={() => toggleCheck(item.key)}
                 disabled={isDisabled}
-                className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1 ${
                   checklist[item.key]
-                    ? 'bg-emerald-600 border border-emerald-700 text-white shadow-sm'
-                    : 'bg-gray-105 border border-gray-300 text-gray-650 hover:bg-gray-200'
+                    ? 'bg-emerald-600 border-2 border-emerald-700 text-white shadow-sm ring-1 ring-emerald-500/20'
+                    : 'bg-white hover:bg-gray-50 border border-gray-300 text-gray-700'
                 }`}
               >
-                {checklist[item.key] ? 'Yes' : 'No'}
+                {checklist[item.key] ? '✓ Yes' : '✗ No'}
               </button>
             </div>
           ))}
@@ -355,21 +364,21 @@ export const LineIsolation: React.FC<FormProps> = ({ permits, onSetPermits, curr
 
       {/* SECTION 3: TEAM DETAILS */}
       <div className="space-y-4">
-        <h3 className="text-xs font-bold text-brand-navy tracking-wider uppercase border-b border-gray-150 pb-2">
-          TEAM DETAILS
+        <h3 className="text-xs font-bold text-brand-navy tracking-wider border-b border-gray-150 pb-2">
+          Team Details
         </h3>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div className="space-y-3 bg-white border border-gray-200 rounded-2xl p-5 shadow-xs">
             <div>
-              <label className="text-xs font-bold text-gray-550 block mb-1">Isolation Done By</label>
+              <label className="text-xs font-bold text-gray-700 block mb-1">Isolation Done By</label>
               <input
                 type="text"
                 required
                 value={isolationDoneBy}
                 onChange={(e) => setIsolationDoneBy(e.target.value)}
                 placeholder="Name of Operator"
-                className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-brand-orange text-gray-700 font-medium disabled:bg-gray-55"
+                className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-brand-orange text-gray-800 font-medium disabled:bg-gray-50 placeholder-gray-500"
                 disabled={isDisabled}
               />
             </div>
@@ -384,14 +393,14 @@ export const LineIsolation: React.FC<FormProps> = ({ permits, onSetPermits, curr
 
           <div className="space-y-3 bg-white border border-gray-200 rounded-2xl p-5 shadow-xs">
             <div>
-              <label className="text-xs font-bold text-gray-550 block mb-1">Verified By</label>
+              <label className="text-xs font-bold text-gray-700 block mb-1">Verified By</label>
               <input
                 type="text"
                 required
                 value={verifiedBy}
                 onChange={(e) => setVerifiedBy(e.target.value)}
                 placeholder="Name of Verifier"
-                className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-brand-orange text-gray-700 font-medium disabled:bg-gray-55"
+                className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-brand-orange text-gray-800 font-medium disabled:bg-gray-50 placeholder-gray-500"
                 disabled={isDisabled}
               />
             </div>
@@ -410,8 +419,8 @@ export const LineIsolation: React.FC<FormProps> = ({ permits, onSetPermits, curr
 
       {/* SECTION 4: SAFETY CONFIRMATION */}
       <div className="space-y-4">
-        <h3 className="text-xs font-bold text-brand-navy tracking-wider uppercase border-b border-gray-150 pb-2">
-          SAFETY CONFIRMATION
+        <h3 className="text-xs font-bold text-brand-navy tracking-wider border-b border-gray-150 pb-2">
+          Safety Confirmation
         </h3>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -421,7 +430,7 @@ export const LineIsolation: React.FC<FormProps> = ({ permits, onSetPermits, curr
             disabled={isDisabled}
             className={`p-4 border rounded-xl text-left text-xs font-bold transition-all cursor-pointer flex items-center justify-between ${
               zeroVoltageConfirmed
-                ? 'bg-emerald-50 border-emerald-500 text-emerald-800 shadow-xs'
+                ? 'bg-emerald-50 border-2 border-emerald-600 text-emerald-800 shadow-xs'
                 : 'bg-white border-gray-250 text-gray-700 hover:border-gray-350'
             }`}
           >
@@ -430,7 +439,7 @@ export const LineIsolation: React.FC<FormProps> = ({ permits, onSetPermits, curr
                 type="checkbox"
                 checked={zeroVoltageConfirmed}
                 readOnly
-                className="accent-emerald-600"
+                className="accent-emerald-600 font-bold"
               />
               Zero Voltage Confirmed
             </span>
@@ -442,7 +451,7 @@ export const LineIsolation: React.FC<FormProps> = ({ permits, onSetPermits, curr
             disabled={isDisabled}
             className={`p-4 border rounded-xl text-left text-xs font-bold transition-all cursor-pointer flex items-center justify-between ${
               groundingCompleted
-                ? 'bg-emerald-50 border-emerald-500 text-emerald-800 shadow-xs'
+                ? 'bg-emerald-50 border-2 border-emerald-600 text-emerald-800 shadow-xs'
                 : 'bg-white border-gray-250 text-gray-700 hover:border-gray-350'
             }`}
           >
@@ -451,7 +460,7 @@ export const LineIsolation: React.FC<FormProps> = ({ permits, onSetPermits, curr
                 type="checkbox"
                 checked={groundingCompleted}
                 readOnly
-                className="accent-emerald-600"
+                className="accent-emerald-600 font-bold"
               />
               Grounding Completed
             </span>
@@ -463,34 +472,34 @@ export const LineIsolation: React.FC<FormProps> = ({ permits, onSetPermits, curr
 
       {/* SECTION 5: RESTORATION */}
       <div className="space-y-4">
-        <h3 className="text-xs font-bold text-brand-navy tracking-wider uppercase border-b border-gray-150 pb-2">
-          RESTORATION
+        <h3 className="text-xs font-bold text-brand-navy tracking-wider border-b border-gray-150 pb-2">
+          Restoration
         </h3>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
           <div>
-            <label className="text-xs font-bold text-gray-550 block mb-1">Re-Energization Time</label>
+            <label className="text-xs font-bold text-gray-700 block mb-1">Re-Energization Time</label>
             <input
               type="text"
               required
               value={reEnergizationTime}
               onChange={(e) => setReEnergizationTime(e.target.value)}
               placeholder="e.g. 15:45 or 4:30 PM"
-              className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-brand-orange text-gray-700 font-medium disabled:bg-gray-55"
+              className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-brand-orange text-gray-800 font-medium disabled:bg-gray-50 placeholder-gray-500"
               disabled={isAuthorizerDisabled}
             />
           </div>
 
           <div className="space-y-3 bg-white border border-gray-200 rounded-2xl p-5 shadow-xs">
             <div>
-              <label className="text-xs font-bold text-gray-550 block mb-1">Authorized By</label>
+              <label className="text-xs font-bold text-gray-700 block mb-1">Authorized By</label>
               <input
                 type="text"
                 required
                 value={authorizedBy}
                 onChange={(e) => setAuthorizedBy(e.target.value)}
                 placeholder="Name of Safety Supervisor"
-                className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-brand-orange text-gray-700 font-medium disabled:bg-gray-55"
+                className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-brand-orange text-gray-800 font-medium disabled:bg-gray-55 placeholder-gray-500"
                 disabled={isAuthorizerDisabled}
               />
             </div>

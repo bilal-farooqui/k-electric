@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { FormWrapper } from '../../components/FormWrapper';
 import { SignaturePad } from '../../components/SignaturePad';
-import type { Permit } from '../../types/ptw';
+import type { Permit, PermitStatus } from '../../types/ptw';
 
 interface FormProps {
   permits: Permit[];
@@ -17,7 +17,7 @@ export const FaultExcavation: React.FC<FormProps> = ({ permits, onSetPermits, cu
   const formCode = 'KE-PTW-FE-05';
 
   const [permitId, setPermitId] = useState('');
-  const [status, setStatus] = useState<'draft' | 'pending' | 'approved' | 'rejected'>('draft');
+  const [status, setStatus] = useState<PermitStatus>('DRAFT');
 
   // Form State
   const [faultId, setFaultId] = useState('');
@@ -38,7 +38,7 @@ export const FaultExcavation: React.FC<FormProps> = ({ permits, onSetPermits, cu
     const existing = editId ? permits.find((p) => p.id === editId) : null;
     if (existing) {
       setPermitId(existing.id);
-      setStatus(existing.status);
+      setStatus(existing.status as PermitStatus);
       const data = existing.formData;
       if (data) {
         setFaultId(data.faultId || '');
@@ -56,7 +56,7 @@ export const FaultExcavation: React.FC<FormProps> = ({ permits, onSetPermits, cu
       }
     } else {
       setPermitId(`KE-FE-${Math.floor(100000 + Math.random() * 900000)}`);
-      setStatus('draft');
+      setStatus('DRAFT');
       setFaultId('');
       setReceivedDate(new Date().toISOString().split('T')[0]);
       setReceivedThrough('');
@@ -78,7 +78,7 @@ export const FaultExcavation: React.FC<FormProps> = ({ permits, onSetPermits, cu
       id: permitId,
       type: 'fault-excavation',
       title: 'Fault / Excavation Request Form',
-      status: 'draft',
+      status: 'DRAFT',
       createdAt: new Date().toLocaleString(),
       submittedBy: requestedBy,
       formData: {
@@ -124,7 +124,7 @@ export const FaultExcavation: React.FC<FormProps> = ({ permits, onSetPermits, cu
       return;
     }
 
-    const finalStatus = approverSignature ? 'approved' : 'pending';
+    const finalStatus = 'PENDING_APPROVAL';
 
     const newPermit: Permit = {
       id: permitId,
@@ -133,8 +133,6 @@ export const FaultExcavation: React.FC<FormProps> = ({ permits, onSetPermits, cu
       status: finalStatus,
       createdAt: new Date().toLocaleString(),
       submittedBy: requestedBy,
-      approvedBy: finalStatus === 'approved' ? 'Substation Control Desk' : undefined,
-      approvedAt: finalStatus === 'approved' ? new Date().toLocaleString() : undefined,
       formData: {
         faultId,
         receivedDate,
@@ -163,29 +161,21 @@ export const FaultExcavation: React.FC<FormProps> = ({ permits, onSetPermits, cu
     onSetPermits(updated);
     localStorage.setItem('ke_ptw_permits', JSON.stringify(updated));
     setStatus(finalStatus);
-    alert(
-      finalStatus === 'approved'
-        ? 'Excavation request approved and finalized!'
-        : 'Excavation request submitted successfully. Awaiting safety approval.'
-    );
+    alert('Permit submitted successfully and is now pending safety officer review.');
     navigate('/');
   };
 
-  const handleApprove = () => {
-    if (!approverSignature && status === 'pending') {
-      alert('Approved By signature is required to approve.');
-      return;
-    }
+  const handleApprove = (approverSig: string) => {
     const existing = permits.find((p) => p.id === permitId);
     if (!existing) return;
     const updatedPermit: Permit = {
       ...existing,
-      status: 'approved',
+      status: 'APPROVED',
       approvedBy: `${currentUser?.name || 'Safety Officer'} (${currentUser?.role || 'Safety Officer'})`,
       approvedAt: new Date().toLocaleString(),
       formData: {
         ...existing.formData,
-        approverSignature,
+        approverSignature: approverSig,
       }
     };
     const index = permits.findIndex((p) => p.id === permitId);
@@ -196,22 +186,21 @@ export const FaultExcavation: React.FC<FormProps> = ({ permits, onSetPermits, cu
       updated = [updatedPermit, ...permits];
     }
     onSetPermits(updated);
-    setStatus('approved');
+    setStatus('APPROVED');
+    setApproverSignature(approverSig);
     alert('Permit approved successfully!');
     navigate('/admin');
   };
 
-  const handleReject = () => {
+  const handleReject = (approverSig: string) => {
     const existing = permits.find((p) => p.id === permitId);
     if (!existing) return;
     const updatedPermit: Permit = {
       ...existing,
-      status: 'rejected',
-      approvedBy: `${currentUser?.name || 'Safety Officer'} (${currentUser?.role || 'Safety Officer'})`,
-      approvedAt: new Date().toLocaleString(),
+      status: 'REJECTED',
       formData: {
         ...existing.formData,
-        approverSignature,
+        approverSignature: approverSig,
       }
     };
     const index = permits.findIndex((p) => p.id === permitId);
@@ -222,17 +211,18 @@ export const FaultExcavation: React.FC<FormProps> = ({ permits, onSetPermits, cu
       updated = [updatedPermit, ...permits];
     }
     onSetPermits(updated);
-    setStatus('rejected');
+    setStatus('REJECTED');
+    setApproverSignature(approverSig);
     alert('Permit rejected.');
     navigate('/admin');
   };
 
-  const isAuthorizerDisabled = status === 'approved' || status === 'rejected' || currentUser?.role !== 'Principal Safety Officer';
-  const isDisabled = status === 'approved' || status === 'rejected' || (currentUser?.role === 'Principal Safety Officer' && status === 'pending');
+  const isAuthorizerDisabled = true;
+  const isDisabled = status !== 'DRAFT';
 
   const existingPermit = permits.find((p) => p.id === permitId);
-  const approvedByVal = existingPermit?.approvedBy || (status === 'pending' && currentUser?.role === 'Principal Safety Officer' ? `${currentUser?.name} (${currentUser?.role || 'Safety Officer'})` : 'Awaiting Approval');
-  const approvedAtVal = existingPermit?.approvedAt || (status === 'pending' && currentUser?.role === 'Principal Safety Officer' ? new Date().toLocaleDateString() + ' ' + new Date().toLocaleTimeString() : 'Pending Review');
+  const approvedByVal = existingPermit?.approvedBy || (status === 'PENDING_APPROVAL' && currentUser?.role === 'Principal Safety Officer' ? `${currentUser?.name} (${currentUser?.role || 'Safety Officer'})` : 'Awaiting Approval');
+  const approvedAtVal = existingPermit?.approvedAt || (status === 'PENDING_APPROVAL' && currentUser?.role === 'Principal Safety Officer' ? new Date().toLocaleDateString() + ' ' + new Date().toLocaleTimeString() : 'Pending Review');
 
   return (
     <FormWrapper
@@ -245,10 +235,11 @@ export const FaultExcavation: React.FC<FormProps> = ({ permits, onSetPermits, cu
       isAdmin={currentUser?.role === 'Principal Safety Officer'}
       onApprove={handleApprove}
       onReject={handleReject}
+      approverSignature={approverSignature}
     >
       <div className="bg-amber-50/15 border border-gray-200 rounded-2xl p-6 md:p-10 shadow-sm max-w-4xl mx-auto font-serif text-gray-800 leading-loose">
         {/* Letter Subject */}
-        <div className="text-center font-bold text-lg mb-8 uppercase tracking-wide border-b-2 border-brand-navy pb-3">
+        <div className="text-center font-bold text-lg mb-8 tracking-wide border-b-2 border-brand-navy pb-3">
           Subject: Receiving Fault / Excavation Request
         </div>
 
@@ -364,20 +355,20 @@ export const FaultExcavation: React.FC<FormProps> = ({ permits, onSetPermits, cu
           {/* Requested By Block */}
           <div className="space-y-4">
             <div className="flex items-center gap-2">
-              <span className="font-bold text-gray-750 text-sm">Requested By:</span>
+              <span className="font-bold text-gray-700 text-sm">Requested By:</span>
               <input
                 type="text"
                 required
                 value={requestedBy}
                 onChange={(e) => setRequestedBy(e.target.value)}
-                className="border-b border-gray-400 bg-transparent px-2 focus:border-brand-orange focus:outline-none flex-1 font-bold text-brand-navy"
+                className="border-b border-gray-400 bg-transparent px-2 focus:border-brand-orange focus:outline-none flex-1 font-bold text-brand-navy text-gray-800"
                 disabled={isDisabled}
                 placeholder="Requester Name"
               />
             </div>
             
             <SignaturePad
-              label="SUBMITTER SIGNATURE"
+              label="Submitter Signature"
               role="Requested By"
               onSign={setSubmitterSignature}
               savedSignature={submitterSignature}
@@ -388,21 +379,21 @@ export const FaultExcavation: React.FC<FormProps> = ({ permits, onSetPermits, cu
           {/* Approved By & Date Block */}
           <div className="space-y-4">
             <div className="flex items-center gap-2">
-              <span className="font-bold text-gray-750 text-sm">Approved By:</span>
+              <span className="font-bold text-gray-700 text-sm">Approved By:</span>
               <span className="border-b border-gray-400 px-2 flex-1 font-bold text-brand-navy block min-h-[24px]">
                 {approvedByVal !== 'Awaiting Approval' ? approvedByVal : ''}
               </span>
             </div>
             
             <div className="flex items-center gap-2">
-               <span className="font-bold text-gray-750 text-sm">Date:</span>
+               <span className="font-bold text-gray-700 text-sm">Date:</span>
                <span className="border-b border-gray-400 px-2 flex-1 font-mono font-bold text-brand-navy block min-h-[24px]">
                  {approvedAtVal !== 'Pending Review' ? approvedAtVal : ''}
                </span>
             </div>
 
             <SignaturePad
-              label="APPROVER SIGNATURE"
+              label="Approver Signature"
               role="Approved By"
               onSign={setApproverSignature}
               savedSignature={approverSignature}
