@@ -2,13 +2,15 @@ import express from 'express';
 import mongoose from 'mongoose';
 import cors from 'cors';
 import dotenv from 'dotenv';
-import dns from 'dns';
 import crypto from 'crypto';
-import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
 
-// Force Node.js to use Google public DNS to successfully resolve Atlas SRV records
-dns.setServers(['8.8.8.8', '8.8.4.4']);
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
+// Load environment variables (supports running from root or server directory)
+dotenv.config({ path: path.resolve(__dirname, '.env') });
 dotenv.config();
 
 function hashPassword(password) {
@@ -23,15 +25,37 @@ const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/ke_ptw
 app.use(cors());
 app.use(express.json());
 
-// Connect to MongoDB
-mongoose.connect(MONGODB_URI)
-  .then(() => {
-    console.log('Successfully connected to MongoDB.');
-    seedDatabase();
-  })
-  .catch((err) => {
+// Serverless-friendly MongoDB connection pooling
+let connPromise = null;
+let isSeeded = false;
+
+async function ensureDbConnected(req, res, next) {
+  try {
+    if (mongoose.connection.readyState !== 1) {
+      if (!connPromise) {
+        connPromise = mongoose.connect(MONGODB_URI, {
+          serverSelectionTimeoutMS: 8000,
+        });
+      }
+      await connPromise;
+      console.log('Successfully connected to MongoDB.');
+    }
+    if (!isSeeded) {
+      isSeeded = true;
+      seedDatabase().catch((err) => console.error('Seed error:', err));
+    }
+    next();
+  } catch (err) {
+    connPromise = null;
     console.error('MongoDB connection error:', err);
-  });
+    return res.status(500).json({
+      error: 'Database connection failed. Please ensure MONGODB_URI is properly set in your Vercel Environment Variables and MongoDB Network Access allows 0.0.0.0/0.',
+      details: err.message
+    });
+  }
+}
+
+app.use(ensureDbConnected);
 
 // Schemas & Models
 const permitSchema = new mongoose.Schema({
@@ -442,11 +466,6 @@ app.post('/api/auth/signup', async (req, res) => {
 app.post('/api/auth/login', async (req, res) => {
   try {
     const { username, password } = req.body;
-    try {
-      fs.appendFileSync('login_attempts.log', `${new Date().toISOString()} - Login Attempt: username="${username}" (len=${username?.length}, codes=[${username ? Array.from(username).map(c => c.charCodeAt(0)).join(',') : ''}]), password="${password}" (len=${password?.length}, codes=[${password ? Array.from(password).map(c => c.charCodeAt(0)).join(',') : ''}])\n`);
-    } catch (e) {
-      console.error('Logging failed:', e);
-    }
     if (!username || !password) {
       return res.status(400).json({ error: 'Username and password are required' });
     }
