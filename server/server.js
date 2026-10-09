@@ -186,12 +186,48 @@ const initialProfiles = [
     name: 'Maheen Mahad',
     role: 'Principal Safety Officer',
     badgeId: 'KE-7492',
+    label: 'admin',
+    password: 'admin123',
+  },
+  {
+    username: 'supervisor',
+    name: 'Salim Qureshi',
+    role: 'Control Room Isolation Officer',
+    badgeId: 'KE-9018',
+    label: 'admin',
+    password: 'supervisor123',
+  },
+  {
+    username: 'manager',
+    name: 'Tariq Aziz',
+    role: 'Grid Operations Manager',
+    badgeId: 'KE-5510',
+    label: 'admin',
+    password: 'manager123',
   },
   {
     username: 'employee',
     name: 'Arif Khan',
     role: 'Field Technician',
     badgeId: 'KE-0284',
+    label: 'employee',
+    password: 'employee123',
+  },
+  {
+    username: 'lineman',
+    name: 'Kamran Malik',
+    role: 'Crew Leader / Lineman',
+    badgeId: 'KE-4820',
+    label: 'employee',
+    password: 'lineman123',
+  },
+  {
+    username: 'inspector',
+    name: 'Zainab Raza',
+    role: 'Safety & PPE Inspector',
+    badgeId: 'KE-3319',
+    label: 'employee',
+    password: 'inspector123',
   },
 ];
 
@@ -209,42 +245,25 @@ async function seedDatabase() {
       console.log('Seeded database with initial notifications.');
     }
 
-    // Seed default profiles if they do not exist
+    // Seed default profiles with passwords and roles
     for (const pInfo of initialProfiles) {
-      const exists = await UserProfile.findOne({ username: pInfo.username });
-      if (!exists) {
-        const password = hashPassword(pInfo.username === 'admin' ? 'admin123' : 'employee123');
-        const label = pInfo.username === 'admin' ? 'admin' : 'employee';
-        const newProfile = new UserProfile({
-          ...pInfo,
-          password,
-          label
-        });
-        await newProfile.save();
-        console.log(`Seeded default profile for: ${pInfo.username}`);
-      }
+      const password = hashPassword(pInfo.password);
+      await UserProfile.findOneAndUpdate(
+        { username: pInfo.username },
+        {
+          $set: {
+            username: pInfo.username,
+            name: pInfo.name,
+            role: pInfo.role,
+            badgeId: pInfo.badgeId,
+            label: pInfo.label,
+            password: password
+          }
+        },
+        { upsert: true, new: true }
+      );
+      console.log(`Seeded/updated profile: ${pInfo.username} (${pInfo.label})`);
     }
-
-    // Ensure all existing user profiles have password and label updates
-    const profiles = await UserProfile.find();
-    for (const p of profiles) {
-      let updated = false;
-      if (!p.password) {
-        p.password = hashPassword(p.username === 'admin' ? 'admin123' : 'employee123');
-        updated = true;
-      }
-      if (p.username === 'admin' && p.label !== 'admin') {
-        p.label = 'admin';
-        updated = true;
-      } else if (p.username !== 'admin' && !p.label) {
-        p.label = 'employee';
-        updated = true;
-      }
-      if (updated) {
-        await p.save();
-      }
-    }
-    console.log('Verified user profiles and updated credentials/labels.');
   } catch (error) {
     console.error('Error seeding database:', error);
   }
